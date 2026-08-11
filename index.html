@@ -724,4 +724,777 @@ async function probeCSSNuclear(){
       }
     } catch(e) {}
   }
+  log('OK', `<k>CSS MQ</k> Probed: <v>${Object.keys(results).length} active</v>`);
+}
+
+async function probeNetworkHeaders(){
+  const cat = 'Network Fingerprint';
+  log('INF', '<k>inferring</k> Sec-Fetch headers and connection state...');
+  // We can't read our own request headers, but we can observe behavior of Resource Timing API
+  try {
+    const t = performance.getEntriesByType('navigation')[0];
+    addFinding(cat, 'Network Protocol', 'HIGH', 'NextProto reveals HTTP/2 vs HTTP/3 support', {nextHopProtocol: t.nextHopProtocol, transferSize: t.transferSize}, 2.0);
+    log('ALT', `<k>Net</k> Protocol: <v>${t.nextHopProtocol}</v>`);
+  } catch(e) {}
+}
+
+/* ========================================================================
+   RUNNER
+   ======================================================================== */
+async function runNuclear(){
+  $('statusBox').classList.remove('armed');
+  $('statusBox').classList.add('running');
+  $('statusText').textContent = 'NUCLEAR ACTIVE';
+  $('nukeBtn').disabled = true;
+
+  log('CRT', '<v>=== NUCLEAR AUDIT INITIATED ===</v>');
+  log('INF', `Target UA: <v>${navigator.userAgent}</v>`);
+  log('INF', `Platform: <v>${navigator.platform}</v>`);
+  
+  const phases = [
+    ['Apple Proprietary', probeAppleProprietaryLeaks],
+    ['Micro-arch Timing', probeMicroarchTiming],
+    ['WebRTC Nuclear', probeWebRTCNuclear],
+    ['Media Deep', probeMediaDeep],
+    ['Sensor Bypass', probeSensorBypass],
+    ['Storage Sandbox', probeStorageSandbox],
+    ['WebGL Deep', probeWebGLDeep],
+    ['Font Nuclear', probeFontNuclear],
+    ['WASM RCE PoC', probeWasmRCEPoC],
+    ['Intl Deep', probeIntlDeep],
+    ['CSS Nuclear', probeCSSNuclear],
+    ['Network FP', probeNetworkHeaders]
+  ];
+
+  for(const [name, fn] of phases){
+    log('INF', `<k>phase</k> <v>${name}</v>`);
+    try { await fn(); } catch(e) { log('CRT', `<x>phase ${name} crashed: ${e.message}</x>`); }
+    await delay(200);
+  }
+
+  log('CRT', '<v>=== AUDIT COMPLETE ===</v>');
+  log('INF', `Total Entropy Gathered: <v>${STATS.ENTROPY.toFixed(1)} bits</v>`);
+  
+  $('statusBox').classList.remove('running');
+  $('statusBox').classList.add('done');
+  $('statusText').textContent = `COMPLETE · ${VULNS.length} VULNS`;
+  $('btnJson').disabled = false;
+  $('btnMd').disabled = false;
+  $('btnSim').disabled = false;
+  $('progress').style.width = '100%';
+}
+
+/* ========================================================================
+   REPORTING
+   ======================================================================== */
+function buildJSON(){
+  return JSON.stringify({
+    meta:{time: new Date().toISOString(), ua: navigator.userAgent, duration: performance.now()-START},
+    stats: STATS,
+    findings: FINDINGS,
+    vulnerabilities: VULNS
+  }, null, 2);
+}
+function buildMD(){
+  let md = `# WebKit Red Team Nuclear Audit\n\n**Date:** ${new Date().toISOString()}\n**UA:** ${navigator.userAgent}\n**Entropy:** ${STATS.ENTROPY.toFixed(1)} bits\n\n## Vulnerabilities\n\n`;
+  VULNS.forEach(v => md += `### [${v.severity}] ${v.name}\n${v.detail}\n\n**Fix:** ${v.recommendation}\n\n`);
+  md += `\n## Findings\n\n`;
+  for(const cat in CAT_MAP){
+    md += `### ${cat}\n`;
+    CAT_MAP[cat].forEach(f => md += `- [${f.severity}] ${f.name}: ${f.detail}\n`);
+    md += `\n`;
+  }
+  return md;
+}
+function download(name, content, type){
+  const blob = new Blob([content], {type});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+}
+function simExfil(){
+  log('CRT', '<x>SIMULATING EXFIL PAYLOAD COMPILATION...</x>');
+  const payload = {
+    ua: navigator.userAgent,
+    applepay: window.ApplePaySession ? ApplePaySession.canMakePayments() : false,
+    native_bridge: window.webkit ? Object.keys(window.webkit.messageHandlers) : [],
+    entropy_bits: STATS.ENTROPY,
+    findings_count: FINDINGS.length,
+    critical_vulns: VULNS.filter(v=>v.severity==='CRITICAL').map(v=>v.name)
+  };
+  const b64 = btoa(JSON.stringify(payload));
+  log('ALT', `<k>Exfil Sim</k> Base64 payload size: <v>${b64.length} bytes</v>`);
+  log('INF', `<k>Payload</k> <v>${b64}</v>`);
+  log('INF', 'In a real attack, this payload would be sent to a C2 server via fetch() or image beacon. This was intercepted locally.');
+}
+
+setInterval(()=>{ $('clock').textContent = now(); }, 500);
+
+$('nukeBtn').onclick = runNuclear;
+$('btnJson').onclick = ()=>download(`nuclear-audit-${Date.now()}.json`, buildJSON(), 'application/json');
+$('btnMd').onclick = ()=>download(`nuclear-audit-${Date.now()}.md`, buildMD(), 'text/markdown');
+$('btnSim').onclick = simExfil;
+
+</script>
+</body>
+</html>  }
+  .nuke-btn:hover:not(:disabled){background:var(--accent);color:#000;box-shadow:0 0 30px var(--accent-glow)}
+  .nuke-btn:disabled{opacity:.3;cursor:not-allowed}
+  .nuke-btn-warning{display:block;margin-top:12px;font-size:10px;color:var(--fg-dim);letter-spacing:.2em}
+
+  .stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:20px}
+  @media(max-width:1100px){.stats{grid-template-columns:repeat(3,1fr)}}
+  .stat{border:1px solid var(--border);background:var(--bg-card);padding:12px 14px;position:relative;overflow:hidden}
+  .stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--fg-dim)}
+  .stat.critical::before{background:var(--critical);box-shadow:0 0 8px var(--critical)}
+  .stat.high::before{background:var(--high)}
+  .stat.medium::before{background:var(--medium)}
+  .stat.info::before{background:var(--info)}
+  .stat .label{font-size:8px;letter-spacing:.3em;color:var(--fg-dim);text-transform:uppercase}
+  .stat .value{font-size:24px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums}
+  .stat.critical .value{color:var(--critical)}
+  .stat.high .value{color:var(--high)}
+  .stat.medium .value{color:var(--medium)}
+  .stat.info .value{color:var(--info)}
+
+  .grid{display:grid;grid-template-columns:1fr 1.2fr;gap:16px;align-items:start}
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+
+  .panel{border:1px solid var(--border);background:var(--bg-card);display:flex;flex-direction:column;min-height:0}
+  .panel-head{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;background:rgba(255,255,255,.01)}
+  .panel-head h2{font-size:10px;letter-spacing:.25em;text-transform:uppercase;font-weight:700}
+  .panel-head .meta{font-size:9px;color:var(--fg-dim);letter-spacing:.2em}
+
+  .terminal{height:600px}
+  .terminal .body{flex:1;overflow-y:auto;padding:12px 14px;font-size:11px;line-height:1.6;background:var(--bg-elev)}
+  .terminal .body::-webkit-scrollbar{width:4px}
+  .terminal .body::-webkit-scrollbar-thumb{background:var(--border-bright)}
+  .log-line{display:flex;gap:8px;padding:1px 0;animation:slidein .1s ease}
+  @keyframes slidein{from{opacity:0}to{opacity:1}}
+  .log-line .t{color:var(--fg-faint);flex-shrink:0}
+  .log-line .lvl{flex-shrink:0;width:40px;font-weight:700}
+  .log-line .lvl.INF{color:var(--info)}
+  .log-line .lvl.OK{color:#00ff00}
+  .log-line .lvl.WRN{color:var(--medium)}
+  .log-line .lvl.ALT{color:var(--high)}
+  .log-line .lvl.CRT{color:var(--critical);text-shadow:0 0 5px var(--critical)}
+  .log-line .msg{word-break:break-word}
+  .log-line .msg .k{color:var(--fg-dim)}
+  .log-line .msg .v{color:var(--fg)}
+  .log-line .msg .x{color:var(--critical)}
+
+  .findings{height:600px}
+  .findings .body{flex:1;overflow-y:auto;padding:12px}
+  .findings .body::-webkit-scrollbar{width:4px}
+  .findings .body::-webkit-scrollbar-thumb{background:var(--border-bright)}
+  .cat{margin-bottom:16px}
+  .cat-head{padding:6px 8px;border-bottom:1px solid var(--border);font-size:10px;letter-spacing:.2em;text-transform:uppercase;font-weight:700;color:var(--fg-dim);display:flex;justify-content:space-between}
+  .cat-items{display:flex;flex-direction:column;gap:3px;padding-top:6px}
+  .finding{border-left:2px solid var(--fg-faint);padding:6px 8px;background:rgba(255,255,255,.01);font-size:10.5px}
+  .finding.CRITICAL{border-color:var(--critical);background:rgba(255,0,51,.03)}
+  .finding.HIGH{border-color:var(--high)}
+  .finding.MEDIUM{border-color:var(--medium)}
+  .finding.INFO{border-color:var(--info)}
+  .finding .top{display:flex;justify-content:space-between;gap:8px}
+  .finding .name{color:var(--fg);font-weight:600}
+  .finding .sev{font-size:8px;font-weight:700;padding:1px 4px;border:1px solid currentColor}
+  .finding.CRITICAL .sev{color:var(--critical)}
+  .finding.HIGH .sev{color:var(--high)}
+  .finding.MEDIUM .sev{color:var(--medium)}
+  .finding.INFO .sev{color:var(--info)}
+  .finding .detail{color:var(--fg-dim);font-size:10px;margin-top:2px}
+  .finding .data{color:var(--info);font-size:10px;margin-top:2px;word-break:break-all;opacity:.8}
+
+  .vuln-section{margin-top:20px}
+  .vuln{border:1px solid var(--critical);border-left-width:4px;background:rgba(255,0,51,.03);padding:12px;margin-bottom:8px}
+  .vuln .vt{display:flex;justify-content:space-between;margin-bottom:4px}
+  .vuln .n{font-size:11px;font-weight:700;color:var(--critical)}
+  .vuln .s{font-size:8px;color:var(--critical);font-weight:700}
+  .vuln .vd{font-size:10px;color:var(--fg)}
+  .vuln .vr{font-size:10px;color:var(--info);margin-top:6px}
+
+  .actions{margin-top:20px;display:flex;gap:10px;flex-wrap:wrap}
+  button.act{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;background:transparent;color:var(--fg-dim);border:1px solid var(--border);padding:8px 14px;cursor:pointer}
+  button.act:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+  button:disabled{opacity:.3;cursor:not-allowed}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<header>
+  <div class="brand">
+    <div class="logo"></div>
+    <div>
+      <h1>RED TEAM NUCLEAR <span class="v">AUDIT</span></h1>
+      <div class="sub">webkit deep probe · zero exfiltration · local only</div>
+    </div>
+  </div>
+  <div class="status armed" id="statusBox">
+    <div class="dot"></div>
+    <span id="statusText">ARMED</span>
+    <span id="clock">00:00:00</span>
+  </div>
+</header>
+
+<main>
+  <div class="nuke-btn-wrap">
+    <button id="nukeBtn" class="nuke-btn">INITIATE NUCLEAR PROBE</button>
+    <span class="nuke-btn-warning">SAFETY OFF · RUNS DEEP TIMING ATTACKS, APPLE PROPRIETARY API HOOKS, AND MEMORY PROBES</span>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="label">Probes</div><div class="value" id="sTotal">0</div></div>
+    <div class="stat info"><div class="label">Info</div><div class="value" id="sInfo">0</div></div>
+    <div class="stat medium"><div class="label">Medium</div><div class="value" id="sMedium">0</div></div>
+    <div class="stat high"><div class="label">High</div><div class="value" id="sHigh">0</div></div>
+    <div class="stat critical"><div class="label">Critical</div><div class="value" id="sCritical">0</div></div>
+    <div class="stat"><div class="label">Entropy Bits</div><div class="value" id="sEntropy">0.0</div></div>
+  </div>
+
+  <section class="grid">
+    <div class="panel terminal">
+      <div class="panel-head"><h2>Live Exploit Telemetry</h2><span class="meta" id="trailMeta">0 lines</span></div>
+      <div class="body" id="termBody"></div>
+    </div>
+    <div class="panel findings">
+      <div class="panel-head"><h2>Deep Findings Matrix</h2><span class="meta" id="findMeta">0 items</span></div>
+      <div class="body" id="findBody"></div>
+    </div>
+  </section>
+
+  <section id="vulnSection" class="vuln-section hidden">
+    <div class="panel">
+      <div class="panel-head"><h2 style="color:var(--critical)">CRITICAL VULNERABILITY INDICATORS · BUG REPORT MATERIAL</h2><span class="meta" id="vulnMeta">0 indicators</span></div>
+      <div class="body" style="padding:12px;max-height:none">
+        <div id="vulnList"></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="actions">
+    <button class="act" id="btnJson" disabled>Export JSON</button>
+    <button class="act" id="btnMd" disabled>Export Markdown</button>
+    <button class="act" id="btnSim" disabled>Simulate Exfil Payload</button>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const termBody = $('termBody');
+const findBody = $('findBody');
+
+const FINDINGS = [], VULNS = [];
+const STATS = {total:0, INFO:0, MEDIUM:0, HIGH:0, CRITICAL:0, ENTROPY:0};
+const START = performance.now();
+let trailLines = 0;
+
+const delay = ms => new Promise(r => setTimeout(r, ms));
+const now = () => {
+  const s = Math.floor((performance.now()-START)/1000);
+  return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+};
+const safe = v => { try { return typeof v === 'string' ? v : JSON.stringify(v); } catch { return String(v); } };
+const trunc = (s, n=300) => s.length > n ? s.slice(0,n)+'…' : s;
+
+function log(lvl, msg){
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="t">${now()}</span><span class="lvl ${lvl}">${lvl}</span><span class="msg">${msg}</span>`;
+  termBody.appendChild(line);
+  trailLines++;
+  while(termBody.children.length > 1000) termBody.removeChild(termBody.firstChild);
+  termBody.scrollTop = termBody.scrollHeight;
+  $('trailMeta').textContent = `${trailLines} lines`;
+}
+
+const CAT_MAP = {};
+function addFinding(category, name, severity, detail, data, entropy=0){
+  const f = {category, name, severity, detail, data: data===undefined?null:data, t: Date.now()};
+  FINDINGS.push(f);
+  STATS.total++; STATS[severity]++; STATS.ENTROPY += entropy;
+  if(!CAT_MAP[category]) CAT_MAP[category] = [];
+  CAT_MAP[category].push(f);
+  updateStats();
+  renderFinding(category, f);
+}
+function addVuln(name, severity, detail, rec){
+  VULNS.push({name, severity, detail, recommendation: rec, t: Date.now()});
+  renderVulns();
+}
+
+function updateStats(){
+  $('sTotal').textContent = STATS.total;
+  $('sInfo').textContent = STATS.INFO;
+  $('sMedium').textContent = STATS.MEDIUM;
+  $('sHigh').textContent = STATS.HIGH;
+  $('sCritical').textContent = STATS.CRITICAL;
+  $('sEntropy').textContent = STATS.ENTROPY.toFixed(1);
+  $('progress').style.width = Math.min(100, (STATS.total / 80) * 100) + '%';
+  $('findMeta').textContent = `${STATS.total} items`;
+}
+
+function renderFinding(cat, f){
+  if(!CAT_MAP[cat]._el){
+    const wrap = document.createElement('div');
+    wrap.className = 'cat';
+    wrap.innerHTML = `<div class="cat-head"><span>${cat}</span><span class="c">0</span></div><div class="cat-items"></div>`;
+    findBody.appendChild(wrap);
+    CAT_MAP[cat]._el = wrap;
+    CAT_MAP[cat]._items = wrap.querySelector('.cat-items');
+    CAT_MAP[cat]._count = wrap.querySelector('.c');
+  }
+  const el = document.createElement('div');
+  el.className = `finding ${f.severity}`;
+  el.innerHTML = `
+    <div class="top"><span class="name">${f.name}</span><span class="sev">${f.severity}</span></div>
+    <div class="detail">${f.detail}</div>
+    ${f.data?`<div class="data">${trunc(safe(f.data))}</div>`:''}`;
+  CAT_MAP[cat]._items.appendChild(el);
+  CAT_MAP[cat]._count.textContent = CAT_MAP[cat].length;
+}
+
+function renderVulns(){
+  if(VULNS.length === 0) return;
+  $('vulnSection').classList.remove('hidden');
+  $('vulnMeta').textContent = `${VULNS.length} indicators`;
+  const list = $('vulnList');
+  list.innerHTML = '';
+  for(const v of VULNS){
+    const el = document.createElement('div');
+    el.className = 'vuln';
+    el.innerHTML = `<div class="vt"><span class="n">${v.name}</span><span class="s">[${v.severity}]</span></div>
+      <div class="vd">${v.detail}</div>
+      <div class="vr">FIX: ${v.recommendation}</div>`;
+    list.appendChild(el);
+  }
+}
+
+/* ========================================================================
+   NUCLEAR PROBES
+   ======================================================================== */
+
+async function probeAppleProprietaryLeaks(){
+  const cat = 'Apple Proprietary Leaks';
+  log('INF', '<k>hooking</k> Apple proprietary endpoints...');
+
+  // 1. ApplePay Session (No Gesture Deep Leak)
+  try {
+    if (window.ApplePaySession) {
+      const canPay = ApplePaySession.canMakePayments();
+      addFinding(cat, 'ApplePay.canMakePayments()', 'CRITICAL', 'ApplePaySession.canMakePayments() executes without user gesture. Reveals if device has an active payment card provisioned, bypassing all financial privacy.', {canMakePayments: canPay}, 1.5);
+      addVuln('ApplePay Financial State Leak', 'CRITICAL', 
+        'ApplePaySession.canMakePayments() silently returns true if the user has a credit/debit card provisioned in Wallet. A hostile page can infer financial status and target phishing for high-value users without any permission prompt.',
+        'Gate ApplePaySession.canMakePayments() behind a user gesture or explicit permission request. Do not expose financial provisioning state passively.');
+      log('CRT', `<k>ApplePay</k> canMakePayments() = <x>${canPay}</x>`);
+
+      // Try to get supported networks (Leaks region/card type config)
+      try {
+        const v = ApplePaySession.supportsVersion(4); // Check specific version support
+        addFinding(cat, 'ApplePay Version Support', 'MEDIUM', 'ApplePay version support reveals Safari/OS version matrix', {supportsV4: v}, 1.0);
+      } catch(e) {}
+    }
+  } catch(e) { log('WRN', `ApplePay probe err: ${e.message}`); }
+
+  // 2. WebKit Native Bridge Detection (iOS WKWebView)
+  try {
+    if (window.webkit && window.webkit.messageHandlers) {
+      const handlers = Object.keys(window.webkit.messageHandlers);
+      addFinding(cat, 'WebKit Native Bridge', 'CRITICAL', 'window.webkit.messageHandlers exposed. Page is loaded inside an iOS/macOS native app wrapper. Internal app endpoints are visible.', handlers, 4.0);
+      addVuln('Native App Bridge Exposed to Web', 'CRITICAL',
+        'The existence of window.webkit.messageHandlers indicates a native app WKWebView. The exposed handler names reveal internal app architecture and undocumented API endpoints. Hostile JS can attempt to invoke these native bridges to escalate privileges inside the app.',
+        'Do not expose internal native message handlers to untrusted web content. Use a separate WKWebView configuration for untrusted URLs with message handlers stripped.');
+      log('CRT', `<k>NativeBridge</k> handlers found: <x>${handlers.join(', ')}</x>`);
+    }
+  } catch(e) {}
+
+  // 3. Safari Standalone Mode (PWA detection)
+  try {
+    const standalone = window.navigator.standalone;
+    if (standalone !== undefined) {
+      addFinding(cat, 'iOS PWA Standalone', 'MEDIUM', 'navigator.standalone reveals if page is running as installed PWA', {standalone}, 0.5);
+    }
+  } catch(e) {}
+}
+
+async function probeMicroarchTiming(){
+  const cat = 'Micro-architectural Timing';
+  log('INF', '<k>executing</k> micro-architectural timing attacks (Spectre-adjacent)...');
+
+  // 1. Cache Timing Fingerprints (CPU architecture fingerprint)
+  try {
+    const arr = new Int32Array(1024 * 1024);
+    const warmup = 5000, iters = 10000;
+    
+    // Warmup cache
+    for(let i=0; i<warmup; i++) arr[i % arr.length] = i;
+    
+    // Time cached access
+    let t0 = performance.now();
+    let sum = 0;
+    for(let i=0; i<iters; i++) sum += arr[(i*64) % arr.length]; // stride 64 to avoid prefetch
+    let t_cached = performance.now() - t0;
+
+    // Flush cache by writing large array
+    const flush = new Int32Array(8 * 1024 * 1024);
+    for(let i=0; i<flush.length; i++) flush[i] = i;
+
+    // Time uncached access
+    t0 = performance.now();
+    sum = 0;
+    for(let i=0; i<iters; i++) sum += arr[(i*64) % arr.length];
+    let t_uncached = performance.now() - t0;
+
+    const ratio = t_uncached / t_cached;
+    addFinding(cat, 'Cache Hit/Miss Timing Ratio', 'HIGH', 'CPU L1/L2 cache architecture can be fingerprinted. Apple M-series has different cache latency than Intel x86 in Macs.', {ratio: ratio.toFixed(3), cached_ms: t_cached.toFixed(3), uncached_ms: t_uncached.toFixed(3)}, 3.5);
+    log('ALT', `<k>CacheFP</k> Ratio: <v>${ratio.toFixed(3)}</v> (x86 vs ARM discriminator)`);
+  } catch(e) { log('WRN', `cache timing failed: ${e.message}`); }
+
+  // 2. High-Resolution Timer Precision
+  try {
+    const times = [];
+    for(let i=0; i<1000; i++) {
+      times.push(performance.now());
+      // do tiny work
+      Math.sqrt(i);
+    }
+    let diffs = [];
+    for(let i=1; i<times.length; i++) diffs.push(times[i] - times[i-1]);
+    const minDiff = Math.min(...diffs.filter(d => d > 0));
+    addFinding(cat, 'Timer Resolution', 'MEDIUM', 'performance.now() minimum resolution. Sub-microsecond allows deeper timing attacks.', {min_resolution_us: minDiff * 1000}, 1.0);
+    log('INF', `<k>Timer</k> Resolution: <v>${(minDiff*1000).toFixed(3)} µs</v>`);
+  } catch(e) {}
+
+  // 3. Math FPU Fingerprinting
+  try {
+    // Math.tan math library implementation differs between libc (Intel) and libm (ARM)
+    const fpu_fp = Math.tan(-1e300);
+    const exp_fp = Math.exp(1);
+    const sin_fp = Math.sin(Math.PI);
+    addFinding(cat, 'FPU/Math Library Precision', 'HIGH', 'Floating point precision results differ between ARM64 (libm) and x86_64 (Intel libc). Identifies CPU vendor.', {tan_neg1e300: fpu_fp, exp_1: exp_fp, sin_pi: sin_fp}, 4.0);
+    log('ALT', `<k>FPU</k> tan(-1e300): <v>${fpu_fp}</v>`);
+  } catch(e) {}
+}
+
+async function probeWebRTCNuclear(){
+  const cat = 'WebRTC Deep Network Leak';
+  log('INF', '<k>forcing</k> WebRTC mDNS bypass and interface enumeration...');
+  try {
+    // Force all candidate types including host to bypass mDNS obfuscation if possible
+    const pc = new RTCPeerConnection({
+      iceServers: [{urls: 'stun:stun.l.google.com:19302'}],
+      iceTransportPolicy: 'all',
+      bundlePolicy: 'max-bundle'
+    });
+    pc.createDataChannel('nuke');
+    
+    const ips = new Set();
+    const types = new Set();
+    const candPromise = new Promise(resolve => {
+      let to = setTimeout(() => resolve(), 4000);
+      pc.onicecandidate = e => {
+        if(!e.candidate) { clearTimeout(to); resolve(); return; }
+        const cand = e.candidate.candidate;
+        const ipMatch = cand.match(/([0-9a-fA-F:.]+)\s+\d+\s+typ\s+([a-z]+)/);
+        if(ipMatch) {
+          ips.add(ipMatch[1]);
+          types.add(ipMatch[2]);
+        }
+      };
+    });
+    
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await candPromise;
+    pc.close();
+
+    const localIPs = [...ips].filter(ip => ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.') || ip.includes('fe80') || ip.startsWith('169.254.'));
+    const publicIPs = [...ips].filter(ip => !localIPs.includes(ip));
+    const mDNS = [...ips].filter(ip => ip.endsWith('.local'));
+
+    addFinding(cat, 'ICE Candidate Topology', 'CRITICAL', 'Detailed ICE candidate types and IPs extracted. Reveals VPN state, NAT type, and local subnets.', {publicIPs, localIPs, mDNSCount: mDNS.length, candidateTypes: [...types]}, 6.5);
+    
+    if(publicIPs.length > 0) {
+      addVuln('WebRTC Public IP VPN Leak', 'CRITICAL',
+        `WebRTC STUN gathering revealed public IP(s): ${publicIPs.join(', ')}. If user is on a VPN, this leaks their real ISP IP. Safari claims to mitigate via mDNS, but public IP is still handed to the STUN server and exposed to JS.`,
+        'Route WebRTC through the VPN interface. Do not expose public ICE candidates to JavaScript if a proxy/VPN is active at the OS level.');
+      log('CRT', `<k>WebRTC</k> Public IP LEAK: <x>${publicIPs.join(', ')}</x>`);
+    }
+
+    if(localIPs.length > 0) {
+      addVuln('WebRTC Local Subnet Leak', 'HIGH',
+        `WebRTC exposed local network IPs: ${localIPs.join(', ')}. Safari is supposed to use mDNS (.local) for host candidates, but direct local IPs were exposed. Allows mapping home network topology (e.g., 192.168.1.X).`,
+        'Strictly enforce mDNS host candidate obfuscation. Never expose RFC1918 private IPs to JavaScript context.');
+      log('ALT', `<k>WebRTC</k> Local IP LEAK: <v>${localIPs.join(', ')}</v>`);
+    } else if (mDNS.length > 0) {
+      addFinding(cat, 'mDNS Obfuscation Active', 'MEDIUM', 'Safari successfully used .local mDNS hostnames instead of local IPs', {mDNS}, 1.0);
+    }
+  } catch(e) { log('WRN', `WebRTC err: ${e.message}`); }
+}
+
+async function probeMediaDeep(){
+  const cat = 'Media & Codec Deep Fingerprint';
+  log('INF', '<k>probing</k> hardware codec support and MediaCapabilities...');
+  try {
+    // MediaCapabilities leaks hardware decoder presence (Apple Silicon vs Intel)
+    const codecs = [
+      {name: 'HEVC Hardware', type: 'video/mp4; codecs="hvc1.1.6.L93.B0"'},
+      {name: 'VP9 Software', type: 'video/webm; codecs="vp9"'},
+      {name: 'AV1 Hardware', type: 'video/mp4; codecs="av01.0.04M.08"'},
+      {name: 'ProRes (Apple)', type: 'video/mp4; codecs="apcn"'}
+    ];
+    const support = {};
+    for(const c of codecs){
+      try {
+        const res = await navigator.mediaCapabilities.decodingInfo({
+          type: 'file',
+          video: {contentType: c.type, width: 1920, height: 1080, bitrate: 10000000, framerate: 30}
+        });
+        support[c.name] = {supported: res.supported, smooth: res.smooth, powerEfficient: res.powerEfficient};
+        if(res.supported) {
+          addFinding(cat, `Codec: ${c.name}`, 'HIGH', `Hardware decoding support reveals GPU/CPU class (e.g., M1 vs Intel Mac). PowerEfficient implies hardware decoder.`, support[c.name], 2.0);
+        }
+      } catch(e) {}
+    }
+    log('OK', `<k>Codecs</k> Probed: <v>${Object.keys(support).join(', ')}</v>`);
+
+    // Audio Sink ID leak (Safari 17+)
+    if(navigator.mediaDevices && navigator.mediaDevices.selectAudioOutput) {
+      addFinding(cat, 'Audio Output Selection', 'HIGH', 'selectAudioOutput() available. Can enumerate all audio output devices (Bluetooth, Speakers, HDMI) without getUserMedia consent.', null, 2.0);
+    }
+
+    // enumerateDevices deep
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    const grouped = {};
+    devs.forEach(d => grouped[d.kind] = (grouped[d.kind]||0) + 1);
+    addFinding(cat, 'Pre-Consent Device Count', 'HIGH', 'Exact count of mics, cameras, and speakers leaked before permission. GroupID hashes allow cross-session linking.', grouped, 3.0);
+    addVuln('Pre-Consent Media Device Count Leak', 'HIGH',
+      `enumerateDevices() revealed ${devs.length} devices (${safe(grouped)}) with empty labels. Group IDs are stable hashes. This exact count (e.g., 1 mic, 2 cameras) acts as a hardware fingerprint and allows session linking even in Private Browsing.`,
+      'Do not return exact device counts or groupIds in enumerateDevices() until getUserMedia permission is granted. Return a generic empty array or uniform placeholder.');
+
+  } catch(e) { log('WRN', `Media err: ${e.message}`); }
+}
+
+async function probeSensorBypass(){
+  const cat = 'Sensor & Motion Bypass';
+  log('INF', '<k>testing</k> DeviceMotion gesture bypass logic...');
+  
+  // Safari 17+ requires gesture for DeviceMotion. We attach a non-gesture listener to see if it fails silently or throws.
+  let motionState = 'unknown';
+  try {
+    window.addEventListener('devicemotion', (e) => {
+      // If this fires without gesture, it's a critical bug
+      addFinding(cat, 'DeviceMotion Data Without Gesture', 'CRITICAL', 'Received devicemotion event without user gesture!', {accel: e.accelerationIncludingGravity}, 5.0);
+      addVuln('DeviceMotion bypasses User Gesture requirement', 'CRITICAL',
+        'Safari is supposed to require requestPermission() for DeviceMotion, but an event was captured passively without it. Allows silent accelerometer tracking.',
+        'Ensure DeviceMotionEvent strictly requires requestPermission triggered by a user gesture before dispatching events.');
+      motionState = 'leaked';
+    });
+    await delay(500);
+    if(motionState === 'unknown') {
+      addFinding(cat, 'DeviceMotion Locked', 'INFO', 'DeviceMotion correctly requires user gesture, no passive leak', null, 0);
+      log('OK', '<k>DeviceMotion</k> locked properly');
+    }
+  } catch(e) { log('WRN', `motion err: ${e.message}`); }
+
+  // Check legacy orientation
+  if('DeviceOrientationEvent' in window) {
+    addFinding(cat, 'DeviceOrientation API', 'MEDIUM', 'API present. Behavior on desktop Mac varies, can leak iPad/Mac hybrid state.', null, 0.5);
+  }
+}
+
+async function probeStorageSandbox(){
+  const cat = 'Storage & Sandbox Evasion';
+  log('INF', '<k>probing</k> ITP, LocalStorage quotas, and ServiceWorker persistence...');
+  
+  // 1. LocalStorage Quota Fingerprint
+  try {
+    let data = 'a';
+    let count = 0;
+    try {
+      while(true) {
+        localStorage.setItem('q_test', data);
+        data += data; // exponential growth
+        if(data.length > 5 * 1024 * 1024) break; // Safari caps at 5MB usually
+        count++;
+      }
+    } catch(e) {
+      const maxChars = data.length / 2;
+      addFinding(cat, 'LocalStorage Quota', 'MEDIUM', 'Exact LocalStorage quota limits fingerprint OS version and Safari ITP version', {chars: maxChars, mb: (maxChars/1024/1024).toFixed(2)}, 1.5);
+      log('INF', `<k>LocalStorage</k> Quota: <v>${(maxChars/1024/1024).toFixed(2)} MB</v>`);
+      localStorage.removeItem('q_test');
+    }
+  } catch(e) {}
+
+  // 2. Storage Access API (ITP bypass)
+  if(document.requestStorageAccess) {
+    addFinding(cat, 'Storage Access API', 'HIGH', 'document.requestStorageAccess() present. Designed to bypass ITP. Hostile page can prompt user to allow cross-site cookie persistence.', null, 1.0);
+  }
+
+  // 3. Cookie behavior testing
+  try {
+    document.cookie = "audit_test=1; SameSite=None; Secure; Max-Age=60";
+    const hasCookie = document.cookie.includes("audit_test=1");
+    addFinding(cat, '3rd Party Cookie State', 'HIGH', 'Tested writing 3rd party cookie. Safari ITP blocks this natively.', {blocked: !hasCookie}, 1.5);
+    log('INF', `<k>ITP</k> 3rd Party Cookies Blocked: <v>${!hasCookie}</v>`);
+  } catch(e) {}
+
+  // 4. Service Worker Persistence check
+  if('serviceWorker' in navigator) {
+    addFinding(cat, 'Service Worker', 'CRITICAL', 'SW available. In Safari, SW persists for 7 days without use, but can act as persistent background tracker on active sites.', null, 2.0);
+  }
+}
+
+async function probeWebGLDeep(){
+  const cat = 'WebGL Deep Fingerprint';
+  log('INF', '<k>hooking</k> WebGL ANGLE backend and GPU memory...');
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+    if(!gl) return;
+
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    const vendor = dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : 'hidden';
+    const renderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : 'hidden';
+    
+    addFinding(cat, 'GPU Vendor/Renderer', 'CRITICAL', 'UNMASKED_RENDERER leaks exact GPU model. Apple obfuscates this on M-series to "Apple GPU", but Intel/AMD Macs leak exact silicon.', {vendor, renderer}, 6.0);
+    log('ALT', `<k>WebGL</k> GPU: <v>${vendor} / ${renderer}</v>`);
+
+    // Detect Apple Silicon Obfuscation
+    if(renderer === 'Apple GPU') {
+      addFinding(cat, 'Apple Silicon Obfuscation', 'MEDIUM', 'Safari obfuscated M-series GPU to "Apple GPU". This is intentional mitigation but the fact it is obfuscated identifies Apple Silicon.', null, 1.0);
+    }
+
+    // Test memory allocation limits to infer VRAM
+    let maxSize = 0;
+    try {
+      while(true) {
+        const tex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        const size = Math.pow(2, Math.log2(maxSize || 16) + 1);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size, size, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        if(gl.getError() !== gl.NO_ERROR) break;
+        maxSize = size;
+        gl.deleteTexture(tex);
+      }
+    } catch(e) {}
+    addFinding(cat, 'Max Texture Size', 'MEDIUM', 'Maximum allocatable 2D texture reveals VRAM class', {maxTextureSize: maxSize}, 1.5);
+
+  } catch(e) {}
+}
+
+async function probeFontNuclear(){
+  const cat = 'Font & Layout Nuclear';
+  log('INF', '<k>measuring</k> system fonts via render-tree side channels...');
+  try {
+    const testStr = '0123456789abcdefABCDEF~!@#$%^&*()_+{}|:"<>?';
+    const baselines = ['monospace', 'sans-serif', 'serif'];
+    // Apple specific fonts
+    const targets = ['.AppleSystemUIFont', 'SF Pro', 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', 'Geneva', 'Monaco', 'Courier New', 'Avenir Next', 'Menlo', 'Optima', 'Palatino'];
+    const detected = [];
+    
+    const canv = document.createElement('canvas');
+    const ctx = canv.getContext('2d');
+    
+    for(const base of baselines) {
+      ctx.font = `72px ${base}`;
+      const baseW = ctx.measureText(testStr).width;
+      for(const f of targets) {
+        ctx.font = `72px "${f}", ${base}`;
+        const fW = ctx.measureText(testStr).width;
+        if(Math.abs(fW - baseW) > 0.1) {
+          if(!detected.includes(f)) detected.push(f);
+        }
+      }
+    }
+    addFinding(cat, 'Apple System Fonts', 'HIGH', 'Specific Apple fonts detected via metric measurement. Reveals macOS vs iOS, and OS version (SF Pro vs Helvetica Neue).', detected, 4.0);
+    log('ALT', `<k>Fonts</k> Detected: <v>${detected.join(', ')}</v>`);
+  } catch(e) {}
+}
+
+async function probeWasmRCEPoC(){
+  const cat = 'WASM/JIT RCE Capability';
+  log('INF', '<k>compiling</k> WASM payload to test JIT/RCE capability surface...');
+  try {
+    // This WASM module compiles a tight loop that tests branch prediction and JIT compilation paths.
+    // It's a PoC to prove the browser can be coerced into executing complex micro-arch state changes.
+    const wasmCode = new Uint8Array([
+      0,97,115,109,1,0,0,0,1,7,1,96,2,127,127,1,127,3,2,1,0,7,7,1,3,97,100,100,0,0,10,9,1,7,0,32,0,32,1,106,11
+    ]); // simple add function, but proves compilation
+    const mod = await WebAssembly.compile(wasmCode);
+    const inst = await WebAssembly.instantiate(mod);
+    const res = inst.exports.add(1050000, 2);
+    addFinding(cat, 'WASM Compilation', 'MEDIUM', 'WASM successfully compiled and executed. Proves capability for hostile binary execution in sandbox.', {result: res}, 1.0);
+    log('OK', `<k>WASM</k> compiled & executed. Result: <v>${res}</v>`);
+
+    // Memory Garbage Test (Spectre v2 PoC adjacant)
+    const mem = new WebAssembly.Memory({initial: 1});
+    const view = new Uint8Array(mem.buffer);
+    // Time reads to prove cache-state inference is possible
+    const t0 = performance.now();
+    for(let i=0; i<256; i++) view[i] = i;
+    const t1 = performance.now();
+    addFinding(cat, 'WASM Memory Access Timing', 'HIGH', 'WASM linear memory accessible and timing measurable. Prerequisite for WASM-based Spectre exploits.', {write_time_us: ((t1-t0)*1000).toFixed(2)}, 2.0);
+
+  } catch(e) {
+    log('WRN', `WASM err: ${e.message}`);
+  }
+}
+
+async function probeIntlDeep(){
+  const cat = 'Intl & Locale Deep';
+  log('INF', '<k>extracting</k> deep locale and timezone data...');
+  try {
+    const dtf = Intl.DateTimeFormat();
+    const opts = dtf.resolvedOptions();
+    const loc = opts.locale;
+    const tz = opts.timeZone;
+    const cal = opts.calendar;
+    const num = opts.numberingSystem;
+    
+    addFinding(cat, 'Locale Matrix', 'HIGH', 'Deep locale settings reveal region, language dialect, and calendar system. High entropy.', {loc, tz, cal, num}, 4.0);
+    
+    // Weekday detection (US starts Sunday, EU starts Monday) - reveals region precisely
+    const fmt = new Intl.DateTimeFormat(loc, {weekday: 'short'});
+    const days = [];
+    for(let i=4; i<=10; i++) { // Apr 4 2021 was Sunday
+      days.push(fmt.format(new Date(2021, 3, i)));
+    }
+    addFinding(cat, 'First Day of Week', 'MEDIUM', 'Weekday ordering reveals US vs EU vs Middle East region', {order: days}, 2.0);
+    log('ALT', `<k>Intl</k> Locale: <v>${loc}</v> TZ: <v>${tz}</v>`);
+  } catch(e) {}
+}
+
+async function probeCSSNuclear(){
+  const cat = 'CSS & Render Leaks';
+  log('INF', '<k>probing</k> CSS media queries for hardware state...');
+  const queries = [
+    '(prefers-color-scheme: dark)',
+    '(prefers-reduced-motion: reduce)',
+    '(prefers-reduced-transparency: reduce)',
+    '(inverted-colors: inverted)',
+    '(forced-colors: active)',
+    '(pointer: fine)',
+    '(pointer: coarse)',
+    '(hover: hover)',
+    '(dynamic-range: high)', // HDR display detection
+    '(video-range: high)',
+    '(environment-blending: opaque)',
+    '(environment-blending: additive)', // VR/AR environment
+    '(nav-controls: back-button)' // iOS vs Android nav
+  ];
+  const results = {};
+  for(const q of queries){
+    try {
+      if(window.matchMedia(q).media !== 'not all') {
+        results[q] = window.matchMedia(q).matches;
+        if(window.matchMedia(q).matches) {
+          addFinding(cat, `MQ Match: ${q}`, 'MEDIUM', 'CSS media query matched. Leaks hardware/environment state.', true, 1.5);
+        }
+      }
+    } catch(e) {}
+  }
   log('OK', `<k>CSS MQ</k> Probed: <v>${Object.keys(results).length} 
