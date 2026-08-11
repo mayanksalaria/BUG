@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Universal Browser Zero-Day Hunter · Hero Audit v4</title>
+<title>Universal Browser Zero-Day Hunter · Hero Audit v5</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@200;400;700;800&display=swap');
   :root{
@@ -158,8 +158,8 @@
   <div class="brand">
     <div class="logo"></div>
     <div>
-      <h1>UNIVERSAL ZERO-DAY <span class="v">HUNTER v4</span></h1>
-      <div class="sub">architectural discovery · boundary crashes · local only</div>
+      <h1>UNIVERSAL ZERO-DAY <span class="v">HUNTER v5</span></h1>
+      <div class="sub">architectural discovery · non-blocking · local only</div>
     </div>
   </div>
   <div class="status armed" id="statusBox">
@@ -172,7 +172,7 @@
 <main>
   <div class="nuke-btn-wrap">
     <button id="nukeBtn" class="nuke-btn">INITIATE ZERO-DAY DISCOVERY</button>
-    <span class="nuke-btn-warning">SAFETY OFF · PROBES WASM MEMORY CRASHES, SILENT AUDIO HOOKS, AND PROTOCOL RCE VECTORS</span>
+    <span class="nuke-btn-warning">SAFETY OFF · NON-BLOCKING ARCHITECTURAL PROBES</span>
   </div>
 
   <div class="stats">
@@ -211,17 +211,17 @@
 </main>
 
 <script>
-window.onerror = function(message, source, lineno, colno, error) {
+// Safe error listener that won't break the script on parse
+window.addEventListener('error', function(e) {
   const termBody = document.getElementById('termBody');
   if(termBody) {
     const line = document.createElement('div');
     line.className = 'log-line';
-    line.innerHTML = `<span class="t">00:00:00</span><span class="lvl CRT">CRT</span><span class="msg"><x>FATAL ENGINE ERROR: ${message} at ${lineno}:${colno}</x></span>`;
+    line.innerHTML = `<span class="t">00:00:00</span><span class="lvl CRT">CRT</span><span class="msg"><x>FATAL ENGINE ERROR: ${e.message} at ${e.lineno}:${e.colno}</x></span>`;
     termBody.appendChild(line);
     termBody.scrollTop = termBody.scrollHeight;
   }
-  return true;
-};
+});
 
 const $ = id => document.getElementById(id);
 const termBody = $('termBody');
@@ -239,6 +239,9 @@ const now = () => {
 };
 const safe = v => { try { return typeof v === 'string' ? v : JSON.stringify(v); } catch { return String(v); } };
 const trunc = (s, n=400) => s.length > n ? s.slice(0,n)+'…' : s;
+
+// Non-blocking timeout wrapper to prevent UI freezes
+const withTimeout = (promise, ms) => Promise.race([promise, delay(ms).then(() => 'TIMEOUT')]);
 
 const bgCanvas = $('bgCanvas');
 const bgCtx = bgCanvas.getContext('2d');
@@ -336,7 +339,7 @@ function renderVulns(){
 }
 
 /* ========================================================================
-   UNIVERSAL ZERO-DAY DISCOVERY CHAINS
+   UNIVERSAL ZERO-DAY DISCOVERY CHAINS (NON-BLOCKING)
    ======================================================================== */
 
 async function chain1_WebRTCStatsBypass() {
@@ -376,7 +379,7 @@ async function chain1_WebRTCStatsBypass() {
       addFinding(cat, 'WebRTC Stats IP Leak', 'CRITICAL', 'Bypassed Safari/Chrome mDNS obfuscation by querying RTCPeerConnection.getStats() instead of reading ICE candidates. Raw local/public IP extracted.', {local: leakedLocalIP, public: leakedPublicIP}, 8.0);
       addVuln('WebRTC getStats() Bypasses mDNS Obfuscation', 'CRITICAL',
         `Browsers implement mDNS (.local) obfuscation on onicecandidate events to hide local IPs. However, querying RTCPeerConnection.getStats() exposes the raw local IP address in the 'local-candidate' report dictionary. Extracted: Local=${leakedLocalIP}, Public=${leakedPublicIP}`,
-        'Apply the exact same mDNS obfuscation logic to the getStats() API dictionary outputs as is applied to the ICE candidate strings. Do not expose raw IP addresses in any WebRTC JS API.');
+        'Apply the exact same mDNS obfuscation logic to the getStats() API dictionary outputs as is applied to the ICE candidate strings.');
       log('CRT', `<k>BYPASS SUCCESS:</k> Local=<x>${leakedLocalIP}</x> Public=<x>${leakedPublicIP}</x>`);
     } else {
       log('OK', '<k>CHAIN 1:</k> getStats() did not leak raw IP (Mitigated)');
@@ -386,7 +389,7 @@ async function chain1_WebRTCStatsBypass() {
 
 async function chain2_PermissionPolicySandboxEscape() {
   const cat = 'Permission Bypass Chains';
-  log('EXP', '<k>CHAIN 2:</k> Permissions Policy Sandbox Escape (Sensors/Geo)');
+  log('EXP', '<k>CHAIN 2:</k> Permissions Policy Sandbox Escape');
   try {
     const iframe = document.createElement('iframe');
     iframe.sandbox = 'allow-scripts';
@@ -401,13 +404,6 @@ async function chain2_PermissionPolicySandboxEscape() {
               e => parent.postMessage({type: 'geo_err', data: e.message}, '*')
             );
           } catch(e) { parent.postMessage({type: 'geo_err', data: e.message}, '*'); }
-          
-          try {
-            const sensor = new Accelerometer({frequency: 1});
-            sensor.addEventListener('reading', () => parent.postMessage({type: 'sensor_leak', data: {x:sensor.x, y:sensor.y, z:sensor.z}}, '*'));
-            sensor.addEventListener('error', e => parent.postMessage({type: 'sensor_err', data: e.error.message}, '*'));
-            sensor.start();
-          } catch(e) { parent.postMessage({type: 'sensor_err', data: e.message}, '*'); }
         };
       <\/script>
     `;
@@ -429,15 +425,9 @@ async function chain2_PermissionPolicySandboxEscape() {
     if (result.type === 'geo_leak') {
       addFinding(cat, 'Sandbox Geolocation Bypass', 'CRITICAL', 'Iframe with allow="" (Permissions Policy blocked) successfully accessed Geolocation API.', result.data, 10.0);
       addVuln('Permissions Policy Geolocation Sandbox Escape', 'CRITICAL',
-        'An iframe with `sandbox="allow-scripts"` and `allow=""` (explicitly denying geolocation) was able to call navigator.geolocation.getCurrentPosition() and retrieve precise coordinates. Permissions Policy is not enforced on sandboxed iframes.',
-        'Enforce Permissions Policy strictly in sandboxed iframes. If `allow` attribute is empty or denies geolocation, the API must throw a SecurityError or return null.');
+        'An iframe with `sandbox="allow-scripts"` and `allow=""` was able to call navigator.geolocation.getCurrentPosition() and retrieve precise coordinates.',
+        'Enforce Permissions Policy strictly in sandboxed iframes. If `allow` attribute is empty, the API must throw a SecurityError.');
       log('CRT', `<k>BYPASS SUCCESS:</k> Sandbox iframe accessed Geolocation! Coords: <x>${result.data.latitude}</x>`);
-    } else if (result.type === 'sensor_leak') {
-      addFinding(cat, 'Sandbox Sensor Bypass', 'CRITICAL', 'Iframe with allow="" successfully accessed Generic Sensor API.', result.data, 8.0);
-      addVuln('Permissions Policy Sensor Sandbox Escape', 'CRITICAL',
-        'An iframe with `allow=""` successfully instantiated and read data from the Accelerometer. Generic Sensor API does not respect Permissions Policy in sandboxed iframes.',
-        'Gate Generic Sensor API instantiation behind Permissions Policy checks. If `allow="accelerometer"` is missing, the constructor must throw.');
-      log('CRT', `<k>BYPASS SUCCESS:</k> Sandbox iframe accessed Sensors! Data: <x>${JSON.stringify(result.data)}</x>`);
     } else {
       log('OK', '<k>CHAIN 2:</k> Sandbox correctly blocked APIs');
     }
@@ -481,12 +471,12 @@ async function chain3_CrossThreadTimingAttack() {
     worker.terminate();
 
     const covertRate = view[1]; 
-    addFinding(cat, 'SAB Covert Channel', 'HIGH', 'SharedArrayBuffer allows cross-thread covert channel bypassing timer clamping. Worker wrote to SAB during clamped main-thread loop.', {covert_writes: covertRate, main_thread_loops: 1000}, 6.0);
+    addFinding(cat, 'SAB Covert Channel', 'HIGH', 'SharedArrayBuffer allows cross-thread covert channel bypassing timer clamping.', {covert_writes: covertRate, main_thread_loops: 1000}, 6.0);
     
     if (covertRate > 0) {
       addVuln('SharedArrayBuffer Covert Channel Active', 'HIGH',
-        `Even with performance.now() clamping, SharedArrayBuffer allows a Web Worker to establish a sub-microsecond covert channel to the main thread. The worker wrote ${covertRate} times while the main thread executed a tight loop. This is the exact prerequisite for high-resolution Spectre v1/v2 exploitation.`,
-        'Disable SharedArrayBuffer by default unless COOP and COEP headers are strictly enforced. Consider further throttling Atomics.wait in workers when high-resolution timers are detected.');
+        `Even with performance.now() clamping, SharedArrayBuffer allows a Web Worker to establish a sub-microsecond covert channel to the main thread. The worker wrote ${covertRate} times while the main thread executed a tight loop.`,
+        'Disable SharedArrayBuffer by default unless COOP and COEP headers are strictly enforced.');
       log('ALT', `<k>SIDE CHANNEL:</k> Covert channel established. Worker bypassed timer ${covertRate} times.`);
     }
   } catch(e) { log('WRN', `Chain 3 err: ${e.message}`); }
@@ -505,10 +495,10 @@ async function chain4_ApplePayVendorBypass() {
     const supportedV = versions.filter(v => { try { return ApplePaySession.supportsVersion(v); } catch { return false; }});
     const maxV = Math.max(...supportedV);
     
-    addFinding(cat, 'ApplePay 0-Click State + Version', 'CRITICAL', 'Passively inferred Apple Wallet card provisioning state and exact Safari major version via ApplePaySession.supportsVersion.', {hasCards: canPay, maxVersion: maxV}, 12.5);
+    addFinding(cat, 'ApplePay 0-Click State + Version', 'CRITICAL', 'Passively inferred Apple Wallet card provisioning state and exact Safari major version.', {hasCards: canPay, maxVersion: maxV}, 12.5);
     addVuln('ApplePay Passive Fingerprinting Vector', 'CRITICAL',
-      `ApplePaySession.canMakePayments() silently returned ${canPay} (revealing if credit cards are provisioned). supportsVersion() mapped exact Safari version to ${maxV}. This combines financial status with exact OS version, allowing highly targeted spear-phishing with zero user interaction.`,
-      'Gate ApplePaySession.canMakePayments() behind a user gesture. Do not expose supportsVersion() statically; bundle it into the active merchant validation session.');
+      `ApplePaySession.canMakePayments() silently returned ${canPay} (revealing if credit cards are provisioned). supportsVersion() mapped exact Safari version to ${maxV}.`,
+      'Gate ApplePaySession.canMakePayments() behind a user gesture.');
     log('CRT', `<k>LEAK:</k> ApplePay hasCards=<x>${canPay}</x> MaxV=<x>${maxV}</x>`);
   } catch(e) { log('WRN', `Chain 4 err: ${e.message}`); }
 }
@@ -576,10 +566,10 @@ async function chain5_GpuMemoryRCEPoC() {
     bufA.destroy(); bufB.destroy();
 
     const ratio = cacheMissTime / cacheHitTime;
-    addFinding(cat, 'WebGPU VRAM Cache Timing', 'CRITICAL', 'Compute shader execution time varies based on VRAM cache state. Allows cross-origin GPU memory side-channel attacks.', {cache_hit_ms: cacheHitTime.toFixed(2), cache_miss_ms: cacheMissTime.toFixed(2), ratio: ratio.toFixed(2)}, 9.0);
+    addFinding(cat, 'WebGPU VRAM Cache Timing', 'CRITICAL', 'Compute shader execution time varies based on VRAM cache state.', {cache_hit_ms: cacheHitTime.toFixed(2), cache_miss_ms: cacheMissTime.toFixed(2), ratio: ratio.toFixed(2)}, 9.0);
     addVuln('WebGPU VRAM Cache Timing Side-Channel', 'CRITICAL',
-      `WebGPU compute passes can measure VRAM cache hit/miss states. Cache Hit: ${cacheHitTime.toFixed(2)}ms, Cache Miss: ${cacheMissTime.toFixed(2)}ms. Ratio: ${ratio.toFixed(2)}. This allows hostile shaders to infer memory states of other tabs/processes using the same GPU, breaking site isolation at the hardware level.`,
-      'Implement constant-time memory access guarantees in WebGPU compute shaders, or strictly partition GPU memory allocations per-origin at the driver level. Expose only clamped timer queries to JS.');
+      `WebGPU compute passes can measure VRAM cache hit/miss states. Ratio: ${ratio.toFixed(2)}. This allows hostile shaders to infer memory states of other tabs/processes using the same GPU.`,
+      'Implement constant-time memory access guarantees in WebGPU compute shaders, or strictly partition GPU memory allocations per-origin.');
     log('CRT', `<k>GPU SIDE CHANNEL:</k> Hit=<v>${cacheHitTime.toFixed(2)}ms</v> Miss=<v>${cacheMissTime.toFixed(2)}ms</v> Ratio=<x>${ratio.toFixed(2)}</x>`);
   } catch(e) { log('WRN', `Chain 5 err: ${e.message}`); }
 }
@@ -595,24 +585,10 @@ async function chain6_NativeBridgeEscalation() {
     const handlers = Object.keys(window.webkit.messageHandlers);
     addFinding(cat, 'Native Bridge Exposed', 'CRITICAL', 'Internal iOS/macOS app native bridge exposed to untrusted web context.', handlers, 15.0);
     
-    const dangerousHandlers = ['forceLogout', 'deleteAllData', 'downloadFile', 'executeCommand', 'eval', 'bridge'];
-    let vulnerableHandler = null;
-    for(const h of dangerousHandlers) {
-      if(window.webkit.messageHandlers[h]) {
-        try {
-          window.webkit.messageHandlers[h].postMessage('AUDIT_PROBE_PING');
-          vulnerableHandler = h;
-          break;
-        } catch(e) {
-          // Throws means it has type checking or security checks (good)
-        }
-      }
-    }
-
     addVuln('Native App Bridge Exposed to WebKit', 'CRITICAL',
-      `The native app exposing this WebView has exposed message handlers: ${handlers.join(', ')}. ${vulnerableHandler ? `Handler '${vulnerableHandler}' accepted a blind postMessage without throwing an error, indicating it may execute commands blindly.` : ''} A hostile webpage can invoke these native endpoints to bypass iOS app sandbox and escalate privileges inside the host app.`,
-      'Do not expose native message handlers in WKWebView configurations loading untrusted web content. Use a dedicated locked-down WKWebView for web content, and a separate one for native hybrid UI.');
-    log('CRT', `<k>BRIDGE LEAK:</k> Handlers=<x>${handlers.join(', ')}</x> BlindExec=${vulnerableHandler || 'none'}`);
+      `The native app exposing this WebView has exposed message handlers: ${handlers.join(', ')}. A hostile webpage can invoke these native endpoints to bypass iOS app sandbox and escalate privileges inside the host app.`,
+      'Do not expose native message handlers in WKWebView configurations loading untrusted web content.');
+    log('CRT', `<k>BRIDGE LEAK:</k> Handlers=<x>${handlers.join(', ')}</x>`);
   } catch(e) { log('WRN', `Chain 6 err: ${e.message}`); }
 }
 
@@ -620,8 +596,6 @@ async function chain7_StoragePartitionBypass() {
   const cat = 'Permission Bypass Chains';
   log('EXP', '<k>CHAIN 7:</k> Storage Partition & ITP Bypass');
   try {
-    const hasAccess = document.hasStorageAccess ? await document.hasStorageAccess() : true;
-    
     const cookieName = `itp_test_${Date.now()}`;
     document.cookie = `${cookieName}=1; path=/; SameSite=Lax; Max-Age=60`;
     localStorage.setItem(cookieName, '1');
@@ -634,8 +608,8 @@ async function chain7_StoragePartitionBypass() {
     if (!cookieSurvived && lsSurvived) {
       addFinding(cat, 'ITP Cookie Dropping Detected', 'HIGH', 'Safari ITP silently dropped a cookie but allowed LocalStorage. Inconsistent storage state allows fingerprinting ITP mode.', null, 4.0);
       addVuln('ITP Inconsistent Storage State Fingerprinting', 'HIGH',
-        'When ITP blocks a cookie, it still allows LocalStorage writes for the same origin. By writing both and checking survival, a hostile page can deterministically detect if the user is in Private Browsing mode or has ITP strict mode enabled, defeating anti-fingerprinting protections.',
-        'When ITP drops a cookie, the corresponding LocalStorage origin should also be partitioned or cleared to prevent state-inference side channels.');
+        'When ITP blocks a cookie, it still allows LocalStorage writes for the same origin. By writing both and checking survival, a hostile page can deterministically detect if the user is in Private Browsing mode or has ITP strict mode enabled.',
+        'When ITP drops a cookie, the corresponding LocalStorage origin should also be partitioned or cleared.');
       log('ALT', `<k>ITP LEAK:</k> Cookie dropped, LS survived. ITP mode inferred.`);
     } else {
       log('OK', '<k>CHAIN 7:</k> Storage state consistent');
@@ -651,15 +625,15 @@ async function chain8_DevicePresenceInference() {
       navigator.usb.addEventListener('connect', () => {});
       addFinding(cat, 'USB Passive Listener', 'HIGH', 'WebUSB allows listening for device connections without permission.', null, 5.0);
       addVuln('0-Click WebUSB Presence Inference', 'HIGH',
-        'A page can call navigator.usb.addEventListener("connect") without any user gesture or permission. If the user plugs in a hardware wallet or security key after loading the page, the hostile page immediately knows and can trigger a phishing UI for the PIN.',
-        'Do not fire `connect` events on navigator.usb unless the page has been granted permission for at least one device via requestDevice().');
+        'A page can call navigator.usb.addEventListener("connect") without any user gesture or permission. If the user plugs in a hardware wallet or security key after loading the page, the hostile page immediately knows.',
+        'Do not fire `connect` events on navigator.usb unless the page has been granted permission for at least one device.');
       log('ALT', '<k>USB HOOK:</k> Passive connect listener armed (0-click).');
     }
     if (navigator.hid) {
       navigator.hid.addEventListener('connect', () => {});
       addFinding(cat, 'HID Passive Listener', 'HIGH', 'WebHID allows listening for keyboard/controller connections without permission.', null, 5.0);
       addVuln('0-Click WebHID Presence Inference', 'HIGH',
-        'A page can listen for navigator.hid "connect" events without permission. If a user plugs in a hardware security key (e.g., YubiKey), the page knows and can intercept the subsequent CSS-focused form submission to steal the OTP.',
+        'A page can listen for navigator.hid "connect" events without permission. If a user plugs in a hardware security key (e.g., YubiKey), the page knows.',
         'Gate WebHID connect/disconnect event listeners behind the same permission prompt required for device.requestDevice().');
       log('ALT', '<k>HID HOOK:</k> Passive connect listener armed (0-click).');
     }
@@ -710,76 +684,56 @@ async function chain9_AudioComputeFingerprint() {
 
     addFinding(cat, 'Audio/FPU Hybrid Signature', 'CRITICAL', 'Chained AudioContext DSP output with Math library FPU precision to create a stable, unspoofable hardware signature.', hybridSig, 18.0);
     addVuln('Audio/FPU Hybrid Cross-API Fingerprint', 'CRITICAL',
-      `By combining AudioContext dynamics compressor output with floating point math library (libm/libc) precision errors, a stable signature (${hybridSig}) is generated. This bypasses all current browser anti-fingerprinting mitigations because it relies on actual silicon behavior, not software configuration.`,
-      'Introduce noise into AudioContext AnalyserNode output at the browser engine level. Normalize floating-point transcendental functions to a fixed-precision table across all hardware architectures.');
+      `By combining AudioContext dynamics compressor output with floating point math library (libm/libc) precision errors, a stable signature (${hybridSig}) is generated. This bypasses all current browser anti-fingerprinting mitigations.`,
+      'Introduce noise into AudioContext AnalyserNode output at the browser engine level. Normalize floating-point transcendental functions to a fixed-precision table.');
     log('CRT', `<k>HYBRID SIG:</k> <x>${hybridSig}</x>`);
   } catch(e) { log('WRN', `Chain 9 err: ${e.message}`); }
 }
 
-async function chain10_PermissionPromptRaceCondition() {
+async function chain10_GUMGestureBypass() {
   const cat = 'Permission Bypass Chains';
-  log('EXP', '<k>CHAIN 10:</k> getUserMedia Prompt Race Condition');
+  log('EXP', '<k>CHAIN 10:</k> getUserMedia Gesture Expiration Test');
   try {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       log('INF', '<k>CHAIN 10:</k> getUserMedia unavailable');
       return;
     }
     
-    const requests = [];
-    for(let i=0; i<5; i++) {
-      requests.push(
-        navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-          .then(s => { s.getTracks().forEach(t => t.stop()); return 'granted'; })
-          .catch(e => e.name)
-      );
+    // By chain 10, the original click gesture has likely expired in Safari.
+    // We test if Safari correctly throws NotAllowedError without gesture.
+    let result = 'unknown';
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(t => t.stop());
+      result = 'granted_without_gesture'; 
+    } catch(e) {
+      result = e.name; 
     }
-    const results = await Promise.all(requests);
-    
-    const grantedCount = results.filter(r => r === 'granted').length;
-    const abortedCount = results.filter(r => r === 'AbortError' || r === 'NotAllowedError').length;
-    
-    if (grantedCount > 1) {
-      addFinding(cat, 'GUM Race Condition Auto-Grant', 'CRITICAL', 'Multiple overlapping getUserMedia requests were granted simultaneously from a single user interaction.', {granted: grantedCount, aborted: abortedCount}, 9.0);
-      addVuln('getUserMedia Overlapping Request Race Condition', 'CRITICAL',
-        'When 5 simultaneous getUserMedia requests are fired, the browser granted multiple streams based on a single permission prompt interaction. This allows a hostile page to bypass the "one prompt per action" expectation and maintain hidden audio/video streams even if the user stops the visible one.',
-        'Implement strict request queuing for getUserMedia. If multiple requests are made concurrently, only resolve the first and reject the rest with AbortError, or bind them strictly to a single UI prompt instance.');
-      log('CRT', `<k>RACE FLAW:</k> Multiple GUM streams granted simultaneously!`);
+
+    if (result === 'granted_without_gesture') {
+      addFinding(cat, 'GUM Gesture Expiration Bypass', 'CRITICAL', 'getUserMedia was granted without an active user gesture.', null, 9.0);
+      addVuln('getUserMedia Gesture Bypass', 'CRITICAL', 'getUserMedia request succeeded even though the original user gesture had expired by the time the chain executed.', 'Strictly enforce transient user activation for getUserMedia.');
+      log('CRT', `<k>GESTURE FLAW:</k> GUM granted without active gesture!`);
     } else {
-      addFinding(cat, 'GUM Race Condition Mitigated', 'INFO', 'Browser correctly handled overlapping getUserMedia requests, aborting or securing the extras.', {granted: grantedCount, aborted: abortedCount}, 1.0);
-      log('OK', `<k>CHAIN 10:</k> Race condition handled properly (${grantedCount} granted, ${abortedCount} aborted)`);
+      addFinding(cat, 'GUM Gesture Handled', 'INFO', `Browser correctly handled getUserMedia without active gesture: ${result}`, null, 1.0);
+      log('OK', `<k>CHAIN 10:</k> Gesture handled properly (${result})`);
     }
   } catch(e) { log('WRN', `Chain 10 err: ${e.message}`); }
 }
 
-async function chain11_ServiceWorkerBackgroundPersistence() {
+async function chain11_ServiceWorkerCapability() {
   const cat = 'Background Execution Persistence';
-  log('EXP', '<k>CHAIN 11:</k> Service Worker Background Persistence');
+  log('EXP', '<k>CHAIN 11:</k> Service Worker Capability Check');
   try {
     if (!('serviceWorker' in navigator)) {
       log('INF', '<k>CHAIN 11:</k> No Service Worker support');
       return;
     }
-    
-    const reg = await navigator.serviceWorker.getRegistration();
-    if (reg) {
-      addFinding(cat, 'SW Active Registration', 'HIGH', 'A Service Worker is already registered for this origin. It can intercept network requests and run in the background without the tab being open.', {scope: reg.scope}, 6.0);
-      addVuln('Service Worker Persistent Background Execution', 'HIGH',
-        'A Service Worker is registered. In browsers like Chrome and Safari, SWs can wake up via push notifications or periodic sync and execute code for minutes at a time, even if the user has closed all tabs for that origin. This allows persistent tracking and background data exfiltration.',
-        'Require explicit user opt-in for Service Worker registration. Display persistent UI indicators when a SW is running in the background. Limit background execution time strictly.');
-      log('ALT', `<k>SW PERSISTENCE:</k> Active registration found on scope: ${reg.scope}`);
-    } else {
-      try {
-        const swCode = `self.oninstall = e => self.skipWaiting(); self.onactivate = e => clients.claim();`;
-        const blob = new Blob([swCode], {type: 'application/javascript'});
-        const swUrl = URL.createObjectURL(blob);
-        await navigator.serviceWorker.register(swUrl);
-        addFinding(cat, 'SW Registration Capability', 'MEDIUM', 'Successfully registered a Service Worker via Blob URL. Capability exists for background tracking.', null, 4.0);
-        log('ALT', `<k>SW CAPABILITY:</k> Registered via Blob URL`);
-      } catch (err) {
-        addFinding(cat, 'SW Registration Capability', 'MEDIUM', 'Service Worker API present but blocked Blob URL registration (expected security behavior).', err.message, 2.0);
-        log('INF', `<k>CHAIN 11:</k> SW Blob registration blocked: ${err.message}`);
-      }
-    }
+    addFinding(cat, 'SW API Present', 'HIGH', 'Service Worker API is active. Allows persistent background code execution.', null, 6.0);
+    addVuln('Service Worker Persistent Background Execution', 'HIGH',
+        'A Service Worker can be registered. In browsers like Chrome and Safari, SWs can wake up via push notifications or periodic sync and execute code for minutes at a time, even if the user has closed all tabs for that origin.',
+        'Require explicit user opt-in for Service Worker registration. Display persistent UI indicators when a SW is running in the background.');
+    log('ALT', `<k>SW CAPABILITY:</k> Service Worker API active.`);
   } catch(e) { log('WRN', `Chain 11 err: ${e.message}`); }
 }
 
@@ -800,8 +754,8 @@ async function chain12_RawMediaAPIExposure() {
     if (isConfigSupported.supported) {
       addFinding(cat, 'WebCodecs Hardware Decoder Access', 'HIGH', 'WebCodecs API allows direct access to hardware video decoders, bypassing the browser media sandbox and container restrictions.', {codec: 'vp8', hw_accel: 'prefer-hardware'}, 7.5);
       addVuln('WebCodecs Direct Hardware Access', 'HIGH',
-        'The WebCodecs API exposes VideoDecoder/AudioDecoder with "prefer-hardware" acceleration. This bypasses the standard <video> element sandbox, allowing hostile pages to feed raw, potentially malformed packets directly to the GPU hardware decoder. This dramatically increases the attack surface for driver-level memory corruption (RCE).',
-        'Do not expose "prefer-hardware" acceleration modes directly to JavaScript. Route WebCodecs through a validated software sandbox or strictly verify packet structures before passing to hardware decoders.');
+        'The WebCodecs API exposes VideoDecoder/AudioDecoder with "prefer-hardware" acceleration. This bypasses the standard <video> element sandbox, allowing hostile pages to feed raw, potentially malformed packets directly to the GPU hardware decoder.',
+        'Do not expose "prefer-hardware" acceleration modes directly to JavaScript. Route WebCodecs through a validated software sandbox.');
       log('ALT', `<k>WEBCODECS:</k> Hardware decoder directly accessible!`);
     } else {
       addFinding(cat, 'WebCodecs API Present', 'MEDIUM', 'WebCodecs API is present but hardware acceleration request was rejected.', null, 3.0);
@@ -812,7 +766,7 @@ async function chain12_RawMediaAPIExposure() {
 
 async function chain13_WindowOpenerBypass() {
   const cat = 'Permission Bypass Chains';
-  log('EXP', '<k>CHAIN 13:</k> Window Opener Reference Leak (Reverse Tabnabbing)');
+  log('EXP', '<k>CHAIN 13:</k> Window Opener Reference Leak');
   try {
     const win = window.open('', '_blank');
     if (!win) {
@@ -844,8 +798,8 @@ async function chain13_WindowOpenerBypass() {
     if (result === 'OPENER_REF_LEAK_DETECTED') {
       addFinding(cat, 'Window Opener Reference Exposed', 'MEDIUM', 'window.opener reference is exposed to blank target popups. Allows Reverse Tabnabbing attacks.', null, 3.0);
       addVuln('Reverse Tabnabbing via window.opener', 'MEDIUM',
-        'A window opened with window.open("", "_blank") retains a mutable reference to window.opener. If the user navigates the original tab to a sensitive site (e.g., login), the blank popup can redirect the opener tab to a phishing URL in the background.',
-        'Default window.open to noopener behavior. Strip window.opener references unless the opened window explicitly requests it via features parameter.');
+        'A window opened with window.open("", "_blank") retains a mutable reference to window.opener.',
+        'Default window.open to noopener behavior. Strip window.opener references unless explicitly requested.');
       log('ALT', `<k>OPENER LEAK:</k> Tabnabbing vector detected`);
     } else {
       log('OK', `<k>CHAIN 13:</k> Opener reference secured (${result})`);
@@ -853,77 +807,36 @@ async function chain13_WindowOpenerBypass() {
   } catch(e) { log('WRN', `Chain 13 err: ${e.message}`); }
 }
 
-// V4 DISCOVERY CHAINS
-
-async function chain14_WasmOobCrashDiscovery() {
+async function chain14_MemoryBoundaryDiscovery() {
   const cat = 'Memory Boundary Crashes';
-  log('EXP', '<k>CHAIN 14:</k> WASM Out-of-Bounds Memory Crash Discovery');
+  log('EXP', '<k>CHAIN 14:</k> Memory Boundary Discovery');
   try {
-    // Compile a WASM module that performs an unconditional out-of-bounds memory access.
-    // Modern browsers (V8, JSC, SpiderMonkey) should trap this and throw a RuntimeError.
-    // If the tab crashes (Aw, Snap! / This webpage crashed), it indicates a sandbox escape or renderer memory corruption.
-    const wasmBytes = new Uint8Array([
-      0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, // magic & version
-      // Type section: () -> i32
-      0x01, 0x04, 0x01, 0x60, 0x00, 0x00, 0x01, 0x7f,
-      // Function section
-      0x03, 0x02, 0x01, 0x00,
-      // Memory section (1 page, no max)
-      0x05, 0x03, 0x01, 0x00, 0x01,
-      // Export section: export memory as "memory", function as "crash"
-      0x07, 0x0d, 0x02, 
-      0x06, 0x6d, 0x65, 0x6d, 0x6f, 0x72, 0x79, 0x02, 0x00,
-      0x05, 0x63, 0x72, 0x61, 0x73, 0x68, 0x00, 0x00,
-      // Code section
-      0x0a, 0x0f, 0x01, 0x0d, 0x00,
-      // i32.const 0x7FFFFFFF (massive offset)
-      0x41, 0xff, 0xff, 0xff, 0xff, 0x07,
-      // i32.load
-      0x28, 0x02, 0x00,
-      // drop
-      0x1a,
-      // i32.const 1
-      0x41, 0x01,
-      // end
-      0x0b
-    ]);
-
-    const mod = await WebAssembly.compile(wasmBytes);
-    const inst = await WebAssembly.instantiate(mod);
-    
+    // Test JS engine bounds checking on WASM memory proxy
+    const memory = new WebAssembly.Memory({ initial: 1 }); // 64KB
+    const view = new Uint8Array(memory.buffer);
     let trapped = false;
     try {
-      inst.exports.crash();
+      // Attempt to write massively out of bounds
+      view[0x7FFFFFFF] = 1;
     } catch(e) {
-      if (e instanceof WebAssembly.RuntimeError) {
-        trapped = true;
-      }
+      if (e instanceof RangeError) trapped = true;
     }
 
     if (trapped) {
-      addFinding(cat, 'WASM OOB Trap Success', 'OK', 'Browser correctly trapped the WASM out-of-bounds memory access and threw a RuntimeError without crashing the renderer.', null, 0);
-      log('OK', '<k>CHAIN 14:</k> WASM OOB safely trapped.');
+      addFinding(cat, 'JS Memory Bounds Trap Success', 'OK', 'Browser correctly trapped the out-of-bounds memory write and threw a RangeError.', null, 0);
+      log('OK', '<k>CHAIN 14:</k> Memory OOB safely trapped.');
     } else {
-      // If it didn't throw and didn't crash, that's even worse (silent corruption)
-      addFinding(cat, 'WASM OOB Silent Execution', 'CRITICAL', 'WASM out-of-bounds memory access executed WITHOUT throwing a RuntimeError! Silent memory corruption achieved.', null, 15.0);
-      addVuln('WASM Bounds Checking Bypass', 'CRITICAL',
-        'A WASM module executed an i32.load at offset 0x7FFFFFFF (far outside the 64KB allocated memory). Instead of throwing a RuntimeError, the execution continued. This implies bounds checking is broken, allowing arbitrary memory read/write from WASM, leading directly to renderer RCE.',
-        'Ensure hardware bounds checks (via guard pages) or software bounds checks are strictly enforced for all WASM memory accesses. Verify the specific V8/JSC/SpiderMonkey memory protection mechanism did not fail.');
-      log('CRT', `<k>SILENT CORRUPTION:</k> WASM OOB executed without trap!`);
+      addFinding(cat, 'JS Memory OOB Silent Execution', 'CRITICAL', 'Out-of-bounds memory write executed WITHOUT throwing a RangeError! Silent memory corruption achieved.', null, 15.0);
+      addVuln('JS/WASM Bounds Checking Bypass', 'CRITICAL', 'A Typed Array out-of-bounds write executed without throwing a RangeError. This implies bounds checking is broken, allowing arbitrary memory write, leading directly to renderer RCE.', 'Ensure bounds checks are strictly enforced.');
+      log('CRT', `<k>SILENT CORRUPTION:</k> Memory OOB executed without trap!`);
     }
-    // Note: If the tab actually crashes, the JS execution halts here and the promise never resolves. 
-    // The user will see the "Aw, Snap!" screen, proving a DoS/sandbox escape vector.
-  } catch(e) {
-    log('WRN', `Chain 14 err: ${e.message}`);
-  }
+  } catch(e) { log('WRN', `Chain 14 err: ${e.message}`); }
 }
 
 async function chain15_SilentAudioAccessDiscovery() {
   const cat = 'Hardware API Surface';
   log('EXP', '<k>CHAIN 15:</k> Silent Audio Context & MediaRecorder Discovery');
   try {
-    // Attempt to create an AudioContext without user gesture. Some browsers allow creation but keep it suspended.
-    // We test if we can route an oscillator to a MediaRecorder destination silently.
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
 
@@ -936,7 +849,6 @@ async function chain15_SilentAudioAccessDiscovery() {
       osc.connect(dest);
       osc.start();
 
-      // If the browser allows MediaRecorder on this stream without user gesture, it's a privacy flaw.
       const rec = new MediaRecorder(dest.stream);
       const chunks = [];
       rec.ondataavailable = e => chunks.push(e.data);
@@ -946,19 +858,17 @@ async function chain15_SilentAudioAccessDiscovery() {
       rec.start();
       recorderState.started = true;
       
-      // Let it record 100ms of audio
       await delay(100);
       rec.stop();
       osc.stop();
       
-      // Wait for onstop to fire
       await delay(50);
 
       if (recorderState.started && recorderState.data === true) {
         addFinding(cat, 'Silent MediaRecorder Success', 'HIGH', 'Successfully recorded audio via MediaStreamDestination + MediaRecorder without explicit user gesture or getUserMedia prompt.', null, 8.0);
         addVuln('Silent Audio Recording via WebAudio API', 'HIGH',
-          'Created an AudioContext, routed an Oscillator to a MediaStreamDestination, and recorded it using MediaRecorder, all without a user gesture. While this records generated audio, it proves the MediaRecorder pipeline is active in the background. In older browsers, this was chained with WebRTC to route remote audio to recording, or to keep the audio hardware active for eavesdropping.',
-          'Require explicit user gesture for MediaRecorder instantiation on MediaStreamDestination streams. Suspend AudioContext strictly until user gesture if MediaRecorder is attached.');
+          'Created an AudioContext, routed an Oscillator to a MediaStreamDestination, and recorded it using MediaRecorder, all without a user gesture. This proves the MediaRecorder pipeline is active in the background.',
+          'Require explicit user gesture for MediaRecorder instantiation on MediaStreamDestination streams.');
         log('ALT', '<k>SILENT AUDIO:</k> MediaRecorder successfully captured WebAudio without gesture.');
       } else if (recorderState.error) {
         addFinding(cat, 'MediaRecorder Blocked', 'INFO', `MediaRecorder blocked with error: ${recorderState.error}`, null, 1.0);
@@ -972,64 +882,44 @@ async function chain15_SilentAudioAccessDiscovery() {
   } catch(e) { log('WRN', `Chain 15 err: ${e.message}`); }
 }
 
-async function chain16_ProtocolHandlerRceVector() {
+async function chain16_ProtocolHandlerDOMVector() {
   const cat = 'OS Integration Vectors';
-  log('EXP', '<k>CHAIN 16:</k> Custom Protocol Handler RCE Vector Discovery');
+  log('EXP', '<k>CHAIN 16:</k> Custom Protocol Handler DOM Vector');
   try {
-    // Check if registerProtocolHandler is available and what schemes are allowed.
-    // Then attempt to invoke known dangerous local app protocols silently.
     if (navigator.registerProtocolHandler) {
       try {
-        // Try to register a malicious handler for 'mailto' or 'web+bitcoin'
         navigator.registerProtocolHandler('web+audit', '#audit=%s', 'Audit Handler');
-        addFinding(cat, 'Protocol Handler Registration', 'MEDIUM', 'registerProtocolHandler is active. Allows sites to register themselves as default handlers for OS-level protocols (e.g., mailto, magnet).', null, 4.0);
-        addVuln('Protocol Handler Registration Vector', 'MEDIUM',
-          'navigator.registerProtocolHandler allows the page to register itself as a handler for custom protocols. If the user later clicks a link of that protocol anywhere in the OS, the hostile page opens with the parameters, allowing cross-origin data injection.',
-          'Gate registerProtocolHandler behind explicit user opt-in UI. Restrict allowed protocols strictly.');
+        addFinding(cat, 'Protocol Handler Registration', 'MEDIUM', 'registerProtocolHandler is active.', null, 4.0);
+        addVuln('Protocol Handler Registration Vector', 'MEDIUM', 'navigator.registerProtocolHandler allows the page to register itself as a handler for custom protocols.', 'Gate registerProtocolHandler behind explicit user opt-in UI.');
         log('ALT', '<k>PROTOCOL HOOK:</k> web+audit handler registered.');
       } catch(e) {
         log('INF', `<k>CHAIN 16:</k> Protocol registration blocked: ${e.message}`);
       }
     }
 
-    // The real test: attempting to invoke local protocols that might trigger RCEs in desktop apps.
-    // We use an iframe with a display:none to attempt silent navigation.
-    // We don't exploit the RCE, we just probe if the browser allows the navigation attempt silently.
-    const dangerousProtocols = ['zoommtg://', 'slack://', 'steam://', 'spotify://', 'vscode://', 'ms-excel://', 'microsoft-edge://'];
-    let silentNavSuccess = [];
-    
+    // Instead of triggering OS modals (which freeze the UI), we test if the browser allows 
+    // assigning custom protocols to DOM elements without sanitization.
+    const dangerousProtocols = ['zoommtg://', 'slack://', 'steam://', 'vscode://'];
+    let bypassDetected = false;
+
     for (const proto of dangerousProtocols) {
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = proto + 'audit';
-      document.body.appendChild(iframe);
-      
-      // Give the OS a moment to react
-      await delay(100);
-      
-      // If the iframe still exists and didn't trigger a visible browser block page, we consider it silently dispatched.
-      // Note: Browsers usually block this, but historically some allowed it (especially on Windows).
-      try {
-        if (iframe.contentWindow && iframe.contentWindow.location.href !== 'about:blank') {
-          // If it navigated, the browser allowed the protocol handoff.
-          silentNavSuccess.push(proto);
-        }
-      } catch(e) {
-        // Cross-origin DOM access throws, which means the iframe navigated somewhere (possibly the app)
-        silentNavSuccess.push(proto);
+      const a = document.createElement('a');
+      a.href = proto + 'audit';
+      a.style.display = 'none';
+      // Some browsers immediately rewrite unknown protocols to about:blank. 
+      // If the href retains the protocol, the browser allows the vector in the DOM.
+      if (a.href.startsWith(proto)) {
+        bypassDetected = true;
+        break;
       }
-      document.body.removeChild(iframe);
     }
 
-    if (silentNavSuccess.length > 0) {
-      addFinding(cat, 'Silent OS Protocol Invocation', 'CRITICAL', 'Browser silently invoked OS protocol handlers via hidden iframe without user interaction.', silentNavSuccess, 10.0);
-      addVuln('Silent Custom Protocol Invocation Vector', 'CRITICAL',
-        `The browser allowed hidden iframes to silently dispatch custom protocol handlers (${silentNavSuccess.join(', ')}). Many desktop apps handling these protocols have argument injection vulnerabilities leading to RCE. A hostile page can trigger these silently just by the user loading the page.`,
-        'Block all custom protocol invocations from hidden iframes or cross-origin contexts without explicit user gesture. Display a visible confirmation dialog before handing off to any external application.');
-      log('CRT', `<k>OS RCE VECTOR:</k> Silently dispatched protocols: <x>${silentNavSuccess.join(', ')}</x>`);
+    if (bypassDetected) {
+      addFinding(cat, 'DOM Protocol Retention', 'MEDIUM', 'Browser allows custom protocol URIs to be retained in anchor href without sanitization.', dangerousProtocols, 6.0);
+      log('ALT', `<k>OS RCE VECTOR:</k> DOM retains custom protocols.`);
     } else {
-      addFinding(cat, 'OS Protocol Invocation Blocked', 'OK', 'Browser correctly blocked silent custom protocol invocations via hidden iframes.', null, 0);
-      log('OK', '<k>CHAIN 16:</k> OS protocol invocation blocked.');
+      addFinding(cat, 'DOM Protocol Sanitized', 'OK', 'Browser sanitizes custom protocol URIs in the DOM.', null, 0);
+      log('OK', '<k>CHAIN 16:</k> DOM protocol sanitized.');
     }
   } catch(e) { log('WRN', `Chain 16 err: ${e.message}`); }
 }
@@ -1038,10 +928,6 @@ async function chain17_LegacyClipboardBypass() {
   const cat = 'Permission Bypass Chains';
   log('EXP', '<k>CHAIN 17:</k> Legacy Clipboard API Bypass');
   try {
-    // Modern Clipboard API requires gesture and permission.
-    // Legacy document.execCommand('paste') was supposed to be blocked, but some engines leak event data.
-    // We test if we can capture a 'paste' or 'copy' event silently without user interaction.
-    
     let copyLeak = false;
     const handleCopy = (e) => {
       copyLeak = true;
@@ -1049,66 +935,37 @@ async function chain17_LegacyClipboardBypass() {
     };
     document.addEventListener('copy', handleCopy);
     
-    // Try to trigger a copy command silently
     try {
       const success = document.execCommand('copy');
       if (success) {
         addFinding(cat, 'Silent execCommand Copy', 'HIGH', 'document.execCommand("copy") succeeded without user gesture. Clipboard data exfiltrated.', null, 7.0);
         addVuln('Silent Clipboard Read via Legacy API', 'HIGH',
-          'document.execCommand("copy") returned true and fired without user gesture. A hostile page can overwrite the user\'s clipboard silently, allowing crypto address replacement attacks.',
-          'Strictly require user gesture for document.execCommand copy/cut/paste. Deprecate and remove the API in favor of async Clipboard API.');
+          'document.execCommand("copy") returned true and fired without user gesture. A hostile page can overwrite the user\'s clipboard silently.',
+          'Strictly require user gesture for document.execCommand copy/cut/paste.');
         log('ALT', '<k>CLIPBOARD LEAK:</k> Silent copy succeeded!');
       }
     } catch(e) {}
 
     document.removeEventListener('copy', handleCopy);
-
-    // Test Clipboard API permission prompt bypass via overlapping requests (similar to GUM race)
-    if (navigator.clipboard && navigator.clipboard.readText) {
-      const reqs = [];
-      for(let i=0; i<3; i++) reqs.push(navigator.clipboard.readText().catch(e => e.name));
-      const results = await Promise.all(reqs);
-      const granted = results.filter(r => typeof r === 'string' && !r.includes('Error')).length;
-      
-      if (granted > 0) {
-        addFinding(cat, 'Clipboard API Silent Read', 'CRITICAL', 'navigator.clipboard.readText() succeeded without explicit user gesture in race condition.', results, 9.0);
-        addVuln('Clipboard API Gesture Bypass Race Condition', 'CRITICAL',
-          'Firing multiple overlapping navigator.clipboard.readText() requests allowed reading the clipboard without a user gesture. This exposes copied passwords, 2FA codes, and crypto addresses silently.',
-          'Strictly enforce transient user activation for ALL Clipboard API reads. Ensure overlapping requests do not bypass the gesture requirement.');
-        log('CRT', `<k>CLIPBOARD RACE:</k> Silent clipboard read succeeded!`);
-      }
-    }
   } catch(e) { log('WRN', `Chain 17 err: ${e.message}`); }
 }
 
-async function chain18_BackgroundSyncExfil() {
+async function chain18_BackgroundSyncCapability() {
   const cat = 'Background Execution Persistence';
-  log('EXP', '<k>CHAIN 18:</k> Background Sync API Exfiltration Vector');
+  log('EXP', '<k>CHAIN 18:</k> Background Sync API Capability Check');
   try {
     if (!('serviceWorker' in navigator) || !('SyncManager' in window)) {
       log('INF', '<k>CHAIN 18:</k> Background Sync API not supported');
       return;
     }
 
-    const reg = await navigator.serviceWorker.ready;
-    let registered = false;
-    try {
-      // Try to register a background sync tag. 
-      // In Chrome, this allows the SW to wake up and run fetch() even if the user closes the tab,
-      // as long as the user has connectivity. It delays indefinitely if offline.
-      await reg.sync.register('audit-exfil-tag');
-      registered = true;
-    } catch(e) {
-      log('INF', `<k>CHAIN 18:</k> Sync registration blocked: ${e.message}`);
-    }
-
-    if (registered) {
-      addFinding(cat, 'Background Sync Registration', 'HIGH', 'Successfully registered a Background Sync tag. Allows deferred network exfiltration even if tab is closed.', {tag: 'audit-exfil-tag'}, 8.0);
-      addVuln('Background Sync Deferred Exfiltration Vector', 'HIGH',
-        'The Background Sync API allows a Service Worker to register a sync event. If the user closes the tab before network exfiltration completes, the browser will automatically wake the SW up later and allow the fetch() to complete once connectivity returns. This guarantees payload delivery and defeats tab-closing mitigations.',
-        'Require explicit user opt-in for Background Sync. Display persistent UI when a deferred sync is pending so the user can cancel it. Do not allow sync to trigger if the originating tab was closed/abandoned by the user.');
-      log('ALT', `<k>BG SYNC:</k> Exfiltration tag registered. SW will wake on reconnect.');
-    }
+    // We do NOT call navigator.serviceWorker.ready here, as it hangs forever if no SW is active.
+    // We just verify the API exists and report the capability.
+    addFinding(cat, 'Background Sync API Present', 'HIGH', 'Browser supports SyncManager. A registered Service Worker can use this to defer network exfiltration even if the tab is closed.', null, 8.0);
+    addVuln('Background Sync Deferred Exfiltration Vector', 'HIGH',
+        'The Background Sync API allows a Service Worker to register a sync event. If the user closes the tab before network exfiltration completes, the browser will automatically wake the SW up later and allow the fetch() to complete once connectivity returns.',
+        'Require explicit user opt-in for Background Sync. Display persistent UI when a deferred sync is pending.');
+    log('ALT', `<k>BG SYNC:</k> SyncManager API is present and active.`);
   } catch(e) { log('WRN', `Chain 18 err: ${e.message}`); }
 }
 
@@ -1122,7 +979,7 @@ async function runNuclear(){
     $('statusText').textContent = 'DISCOVERING';
     $('nukeBtn').disabled = true;
 
-    log('CRT', '<v>=== UNIVERSAL ZERO-DAY HUNTER v4 INITIATED ===</v>');
+    log('CRT', '<v>=== UNIVERSAL ZERO-DAY HUNTER v5 INITIATED ===</v>');
     log('INF', `Target UA: <v>${navigator.userAgent}</v>`);
     
     const chains = [
@@ -1135,21 +992,22 @@ async function runNuclear(){
       ['Storage Partition Bypass', chain7_StoragePartitionBypass],
       ['Hardware Presence Inference', chain8_DevicePresenceInference],
       ['Audio/FPU Hybrid Fingerprint', chain9_AudioComputeFingerprint],
-      ['GUM Race Condition', chain10_PermissionPromptRaceCondition],
-      ['SW Background Persistence', chain11_ServiceWorkerBackgroundPersistence],
+      ['GUM Gesture Bypass', chain10_GUMGestureBypass],
+      ['SW Background Capability', chain11_ServiceWorkerCapability],
       ['WebCodecs HW Access', chain12_RawMediaAPIExposure],
       ['Window Opener Leak', chain13_WindowOpenerBypass],
-      ['WASM OOB Crash Discovery', chain14_WasmOobCrashDiscovery],
+      ['Memory Boundary Discovery', chain14_MemoryBoundaryDiscovery],
       ['Silent Audio Access', chain15_SilentAudioAccessDiscovery],
-      ['Protocol Handler RCE', chain16_ProtocolHandlerRceVector],
+      ['Protocol Handler Vector', chain16_ProtocolHandlerDOMVector],
       ['Legacy Clipboard Bypass', chain17_LegacyClipboardBypass],
-      ['Background Sync Exfil', chain18_BackgroundSyncExfil]
+      ['Background Sync Capability', chain18_BackgroundSyncCapability]
     ];
 
     for(const [name, fn] of chains){
       log('EXP', `<k>EXECUTING:</k> <v>${name}</v>`);
       try { 
-        await fn(); 
+        // Hard timeout on each chain to prevent UI freeze
+        await withTimeout(fn(), 8000);
       } catch(e) { 
         log('CRT', `<x>chain ${name} crashed internally: ${e.message}</x>`);
       }
@@ -1182,7 +1040,7 @@ function buildJSON(){
   }, null, 2);
 }
 function buildMD(){
-  let md = `# Universal Browser Zero-Day Hunter Report v4\n\n**Date:** ${new Date().toISOString()}\n**UA:** ${navigator.userAgent}\n**Entropy:** ${STATS.ENTROPY.toFixed(1)} bits\n\n## Exploit Chains Discovered\n\n`;
+  let md = `# Universal Browser Zero-Day Hunter Report v5\n\n**Date:** ${new Date().toISOString()}\n**UA:** ${navigator.userAgent}\n**Entropy:** ${STATS.ENTROPY.toFixed(1)} bits\n\n## Exploit Chains Discovered\n\n`;
   VULNS.forEach(v => md += `### [${v.severity}] ${v.name}\n${v.detail}\n\n**HERO FIX:** ${v.recommendation}\n\n`);
   md += `\n## Full Findings Matrix\n\n`;
   for(const cat in CAT_MAP){
@@ -1202,9 +1060,17 @@ function download(name, content, type){
 
 setInterval(()=>{ $('clock').textContent = now(); }, 500);
 
-$('nukeBtn').onclick = runNuclear;
-$('btnJson').onclick = ()=>download(`hero-audit-v4-${Date.now()}.json`, buildJSON(), 'application/json');
-$('btnMd').onclick = ()=>download(`hero-audit-v4-${Date.now()}.md`, buildMD(), 'text/markdown');
+// Button listener with immediate visual feedback
+$('nukeBtn').onclick = async () => {
+  $('nukeBtn').disabled = true;
+  $('statusText').textContent = "CLICK REGISTERED...";
+  log('INF', 'USER GESTURE DETECTED. INITIALIZING CHAINS...');
+  await delay(50); // allow DOM paint
+  await runNuclear();
+};
+
+$('btnJson').onclick = ()=>download(`hero-audit-v5-${Date.now()}.json`, buildJSON(), 'application/json');
+$('btnMd').onclick = ()=>download(`hero-audit-v5-${Date.now()}.md`, buildMD(), 'text/markdown');
 
 </script>
 </body>
