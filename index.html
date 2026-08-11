@@ -2,135 +2,138 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>SYS_INIT</title>
+<title>SECURE_TERMINAL</title>
 <style>
   html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    background: #000;
-    overflow: hidden;
+    margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden;
   }
   body {
-    color: #0f0;
-    font-family: 'Courier New', Courier, monospace;
-    padding: 40px;
-    box-sizing: border-box;
-    text-shadow: 0 0 5px #0f0;
+    color: #0f0; font-family: 'Courier New', Courier, monospace;
+    padding: 40px; box-sizing: border-box; text-shadow: 0 0 5px #0f0;
   }
-  /* CRT Scanline effect */
   body::before {
-    content: " ";
-    display: block;
-    position: fixed;
-    top: 0; left: 0; bottom: 0; right: 0;
+    content: " "; display: block; position: fixed; top: 0; left: 0; bottom: 0; right: 0;
     background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-    z-index: 2;
-    background-size: 100% 2px, 3px 100%;
-    pointer-events: none;
+    z-index: 2; background-size: 100% 2px, 3px 100%; pointer-events: none;
   }
-  #terminal {
-    white-space: pre-wrap;
-    font-size: 16px;
-    line-height: 1.5;
+  #terminal { white-space: pre-wrap; font-size: 16px; line-height: 1.5; }
+  .redacted { color: #333; text-shadow: none; }
+  
+  #decrypt-btn {
+    background: transparent; color: #0f0; border: 1px solid #0f0;
+    padding: 10px 20px; font-family: inherit; font-size: 14px;
+    cursor: pointer; margin-top: 20px; text-shadow: 0 0 5px #0f0;
+    transition: 0.2s; display: block;
   }
-  #input-line {
-    display: flex;
-    align-items: center;
-    font-size: 16px;
-    margin-top: 20px;
-  }
-  #cmd {
-    background: transparent;
-    border: none;
-    color: #0f0;
-    font-family: inherit;
-    font-size: inherit;
-    outline: none;
-    width: 200px;
-    caret-color: #0f0;
-    text-shadow: inherit;
-  }
-  .cursor {
-    display: inline-block;
-    width: 8px;
-    height: 16px;
-    background: #0f0;
-    margin-left: 2px;
-    animation: blink 1s step-end infinite;
-    vertical-align: middle;
-  }
-  @keyframes blink {
-    50% { opacity: 0; }
-  }
+  #decrypt-btn:hover { background: #0f0; color: #000; text-shadow: none; }
+  
+  #status { margin-top: 10px; font-size: 12px; color: #555; }
 </style>
 </head>
 <body>
-  <div id="terminal"></div>
-  <div id="input-line">
-    <span>&gt; </span>
-    <input type="text" id="cmd" autofocus autocomplete="off">
-    <span class="cursor"></span>
+  <div id="terminal">
+    <span class="redacted">████████████████████████████████████████████</span>
+    <span class="redacted">████████████████████████████████████████████</span>
+    <span class="redacted">████ ENCRYPTED LOCAL MANIFEST DETECTED ████</span>
+    <span class="redacted">████████████████████████████████████████████</span>
+    <span class="redacted">████████████████████████████████████████████</span>
+    
+    > SYSTEM REQUIREMENT: Local execution context required to decrypt.
+    > To read the message, you must authorize access to the local manifest file.
   </div>
+  
+  <button id="decrypt-btn">[ DECRYPT & OPEN LOCAL MANIFEST ]</button>
+  <div id="status"></div>
 
   <script>
     (function() {
       const terminal = document.getElementById('terminal');
-      const cmdInput = document.getElementById('cmd');
-      
+      const decryptBtn = document.getElementById('decrypt-btn');
+      const status = document.getElementById('status');
+      let fileHandle = null;
+      let typewriterInterval;
+
       const message = 
-        "> ESTABLISHING SECURE UPLINK......... [OK]\n" +
+        "\n> ESTABLISHING SECURE UPLINK......... [OK]\n" +
         "> BYPASSING NETWORK FIREWALLS....... [OK]\n" +
         "> SPOOFING MAC ADDRESS.............. [OK]\n" +
         "> ACCESSING ROOT KERNEL............. [OK]\n\n" +
         "WARNING: UNAUTHORIZED ACCESS DETECTED.\n" +
         "You have reached a restricted mainframe.\n\n" +
-        "If you accept the risks and wish to proceed, type 'yes'.\n" +
-        "Otherwise, simply scroll away, and this encounter never happened.";
+        "By opening this manifest, you have triggered a one-time read execution.\n" +
+        "Security protocols dictate this message must not persist.\n" +
+        "Purging local manifest in 1 second...";
 
-      let typewriterInterval;
-      let i = 0;
+      // Step 1: User clicks the button, thinking they are just opening a file to read it.
+      decryptBtn.addEventListener('click', async () => {
+        try {
+          status.innerText = "> AWAITING MANIFEST SELECTION...";
+          
+          // The browser requires a user gesture to show the file picker.
+          // We trick the user into selecting the index.html file itself.
+          [fileHandle] = await window.showOpenFilePicker({
+            types: [{
+              description: 'Local Manifest',
+              accept: { 'text/html': ['.html'] }
+            }]
+          });
 
-      function typeWriter() {
-        if (i < message.length) {
-          terminal.innerHTML += message.charAt(i);
-          i++;
-        } else {
-          clearInterval(typewriterInterval);
+          // Hide the button and redacted text, begin the sequence
+          decryptBtn.style.display = 'none';
+          terminal.innerHTML = '';
+          status.innerText = '> MANIFEST VERIFIED. DECRYPTING...';
+          
+          setTimeout(() => {
+            status.innerText = '';
+            startTypewriter();
+          }, 800);
+
+        } catch (e) {
+          status.innerText = "> MOUNT FAILED. ACCESS DENIED.";
         }
+      });
+
+      function startTypewriter() {
+        let i = 0;
+        typewriterInterval = setInterval(() => {
+          if (i < message.length) {
+            terminal.innerHTML += message.charAt(i);
+            i++;
+          } else {
+            clearInterval(typewriterInterval);
+            // Message finished. Wait 1 second so they can read the purge warning, then destroy.
+            setTimeout(selfDestruct, 1000);
+          }
+        }, 20);
       }
 
-      setTimeout(() => {
-        typewriterInterval = setInterval(typeWriter, 20);
-      }, 500);
-
-      function selfDestruct() {
-        // Remove event listeners to prevent re-triggering
-        window.removeEventListener('wheel', selfDestruct);
-        window.removeEventListener('touchmove', selfDestruct);
-        cmdInput.removeEventListener('input', checkInput);
-        
-        // Clear typewriter
-        clearInterval(typewriterInterval);
-
-        // Obliterate the entire DOM, leaving zero proof in the Elements tab
+      // Step 2: The actual file destruction
+      async function selfDestruct() {
+        // Visually wipe the DOM first
         document.documentElement.innerHTML = '<head></head><body></body>';
-        
-        // Clear any variables
-        terminal = null;
-        cmdInput = null;
-      }
 
-      function checkInput() {
-        if (cmdInput.value.trim().toLowerCase() === 'yes') {
-          selfDestruct();
+        if (fileHandle) {
+          try {
+            // Ensure we have write permission (granted implicitly by the picker in most cases,
+            // but requesting just in case the browser requires it).
+            const opts = { mode: 'readwrite' };
+            if ((await fileHandle.queryPermission(opts)) !== 'granted') {
+              await fileHandle.requestPermission(opts);
+            }
+            
+            // Overwrite the physical file with absolutely nothing
+            const writable = await fileHandle.createWritable();
+            await writable.write('');
+            await writable.close();
+            
+            // Drop the reference
+            fileHandle = null;
+          } catch (e) {
+            // Silent fail to maintain the illusion. 
+            // If it fails here, the DOM is still wiped, but the file survives.
+          }
         }
       }
-
-      // Triggers: Typing 'yes' or Scrolling (mouse wheel or touch)
-      cmdInput.addEventListener('input', checkInput);
-      window.addEventListener('wheel', selfDestruct);
-      window.addEventListener('touchmove', selfDestruct);
     })();
   </script>
 </body>
