@@ -2,761 +2,683 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Universal Browser Zero-Day Hunter · Hero Audit v14</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mic Boundary — iOS Safari Capability Cartography</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@200;400;700;800&display=swap');
   :root{
-    --bg:#030306; --bg-elev:#060609; --bg-card:#08080d;
-    --fg:#e0e0e0; --fg-dim:#5a5a6a; --fg-faint:#2a2a35;
-    --accent:#00ffcc; --accent-2:#ff0055;
-    --critical:#ff0055; --high:#ff8800; --medium:#ffcc00; --info:#00aaff;
-    --border:rgba(255,255,255,.04); --border-bright:rgba(0,255,204,.2);
-    --mono:'JetBrains Mono', ui-monospace, monospace;
+    --bg:#0a0d10; --bg2:#11161b; --panel:#131a20; --panel2:#161e25;
+    --line:#1f2830; --line2:#2a3540;
+    --fg:#d7dde3; --fg2:#8a96a3; --fg3:#5a6573;
+    --acc:#6ee7b7; --acc2:#34d399; --amber:#fbbf24; --red:#ef4444; --blue:#60a5fa;
   }
-  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-  html,body{background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:12px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden;width:100%}
-  body{background:radial-gradient(1000px 600px at 90% -10%, rgba(255,0,85,.06), transparent 60%), radial-gradient(800px 400px at -10% 100%, rgba(0,255,204,.04), transparent 60%), var(--bg);min-height:100vh;}
-  #bgCanvas{position:fixed;inset:0;z-index:-1;opacity:0.15;pointer-events:none}
-  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:9999;background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0px,rgba(0,0,0,0) 2px,rgba(0,0,0,.3) 3px,rgba(0,0,0,0) 4px);mix-blend-mode:multiply;opacity:.5;}
-  #progress{position:fixed;top:0;left:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent-2));width:0;z-index:10000;box-shadow:0 0 12px var(--accent);transition:width .3s ease;}
-  
-  /* Mobile-First Consent Overlay */
-  #consentOverlay{position:fixed;inset:0;z-index:10001;background:rgba(3,3,6,0.98);display:flex;align-items:center;justify-content:center;padding:20px;width:100dvh;height:100dvh;}
-  #consentBox{max-width:100%;width:100%;border:1px solid var(--critical);background:var(--bg-card);padding:30px 20px;text-align:center;display:flex;flex-direction:column;justify-content:center;height:100%;overflow-y:auto;}
-  #consentBox h2{color:var(--critical);font-size:16px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:20px;}
-  #consentBox p{font-size:12px;color:var(--fg-dim);margin-bottom:20px;line-height:1.8;}
-  #consentBox .warn{color:var(--high);margin-top:10px;font-weight:bold;}
-  #consentStatus{font-size:14px;color:var(--accent);margin:20px 0;font-weight:800;min-height:20px;}
-  #consentBtn{font-family:var(--mono);font-size:14px;letter-spacing:.2em;text-transform:uppercase;font-weight:800;background:transparent;color:var(--critical);border:1px solid var(--critical);padding:20px 20px;cursor:pointer;transition:all .2s;width:100%;touch-action:manipulation;}
-  #consentBtn:hover:not(:disabled){background:var(--critical);color:#000;box-shadow:0 0 30px rgba(255,0,85,.6);}
-  #consentBtn:disabled{opacity:.3;cursor:not-allowed}
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--fg);
+    font-family:'JetBrains Mono',ui-monospace,monospace; font-size:13px; line-height:1.5;
+    background-image:
+      radial-gradient(900px 600px at 85% -10%, rgba(110,231,183,.055), transparent 60%),
+      radial-gradient(700px 500px at -10% 110%, rgba(251,191,36,.035), transparent 60%);
+    min-height:100vh; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1180px; margin:0 auto; padding:32px 22px 80px}
+  header{padding:8px 0 28px; border-bottom:1px solid var(--line); margin-bottom:32px}
+  .eyebrow{font-size:11px; letter-spacing:.18em; color:var(--acc); text-transform:uppercase; margin-bottom:14px}
+  h1{font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:34px; line-height:1.1; margin:0 0 10px; letter-spacing:-.01em}
+  .sub{color:var(--fg2); font-size:13px; max-width:780px}
+  .meta{display:flex; gap:18px; flex-wrap:wrap; margin-top:18px; color:var(--fg3); font-size:11px; letter-spacing:.08em; text-transform:uppercase}
+  .meta span b{color:var(--fg2); font-weight:500}
 
-  header{border-bottom:1px solid var(--border-bright);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:20px;background:linear-gradient(180deg,rgba(8,8,13,.9),rgba(8,8,13,.4));backdrop-filter:blur(8px);position:sticky;top:0;z-index:100;}
-  .brand{display:flex;align-items:center;gap:12px}
-  .logo{width:32px;height:32px;border:1px solid var(--accent);position:relative;display:grid;place-items:center;background:rgba(0,255,204,.05);box-shadow:0 0 15px rgba(0,255,204,.2) inset;flex-shrink:0;}
-  .logo::before{content:"";position:absolute;width:2px;height:16px;background:var(--accent);animation:scan 1.5s linear infinite}
-  .logo::after{content:"";position:absolute;width:16px;height:2px;background:var(--accent-2);animation:scan 1.5s linear infinite reverse}
-  @keyframes scan{0%{transform:translateY(-8px)}50%{transform:translateY(8px)}100%{transform:translateY(-8px)}}
-  .brand h1{font-weight:800;font-size:14px;letter-spacing:.2em;text-transform:uppercase}
-  .brand h1 .v{color:var(--accent)}
-  .brand .sub{font-size:9px;color:var(--fg-dim);letter-spacing:.3em;text-transform:uppercase;margin-top:2px}
-  .status{display:flex;align-items:center;gap:15px;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--fg-dim)}
-  .status .dot{width:8px;height:8px;border-radius:50%;background:var(--fg-dim)}
-  .status.armed .dot{background:var(--medium);box-shadow:0 0 8px var(--medium);animation:pulse 1s ease-in-out infinite}
-  .status.running .dot{background:var(--accent);box-shadow:0 0 10px var(--accent);animation:pulse .5s ease-in-out infinite}
-  .status.done .dot{background:var(--accent-2);box-shadow:0 0 12px var(--accent-2);animation:none}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
-  #clock{font-variant-numeric:tabular-nums;color:var(--fg)}
-  main{padding:20px;max-width:1600px;margin:0 auto}
-  .nuke-btn-wrap{text-align:center;padding:30px 20px;border:1px dashed var(--border-bright);margin-bottom:20px;background:rgba(0,255,204,.01)}
-  .nuke-btn{font-family:var(--mono);font-size:14px;letter-spacing:.3em;text-transform:uppercase;font-weight:800;background:transparent;color:var(--accent);border:1px solid var(--accent);padding:15px 40px;cursor:pointer;transition:all .2s ease;width:100%;}
-  .nuke-btn:hover:not(:disabled){background:var(--accent);color:#000;box-shadow:0 0 30px rgba(0,255,204,.4)}
-  .nuke-btn:disabled{opacity:.3;cursor:not-allowed}
-  .nuke-btn-warning{display:block;margin-top:12px;font-size:10px;color:var(--high);letter-spacing:.2em}
-  .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px}
-  @media(min-width:700px){.stats{grid-template-columns:repeat(3,1fr)}}
-  @media(min-width:1100px){.stats{grid-template-columns:repeat(6,1fr)}}
-  .stat{border:1px solid var(--border);background:var(--bg-card);padding:12px 14px;position:relative;overflow:hidden}
-  .stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--fg-dim)}
-  .stat.critical::before{background:var(--critical);box-shadow:0 0 8px var(--critical)}
-  .stat.high::before{background:var(--high)}
-  .stat.medium::before{background:var(--medium)}
-  .stat.info::before{background:var(--info)}
-  .stat .label{font-size:8px;letter-spacing:.3em;color:var(--fg-dim);text-transform:uppercase}
-  .stat .value{font-size:24px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums}
-  .stat.critical .value{color:var(--critical)}
-  .stat.high .value{color:var(--high)}
-  .stat.medium .value{color:var(--medium)}
-  .stat.info .value{color:var(--info)}
-  .grid{display:grid;grid-template-columns:1fr;gap:16px;align-items:start}
-  @media(min-width:1100px){.grid{grid-template-columns:1fr 1.2fr}}
-  .panel{border:1px solid var(--border);background:var(--bg-card);display:flex;flex-direction:column;min-height:0}
-  .panel-head{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;background:rgba(255,255,255,.01)}
-  .panel-head h2{font-size:10px;letter-spacing:.25em;text-transform:uppercase;font-weight:700}
-  .panel-head .meta{font-size:9px;color:var(--fg-dim);letter-spacing:.2em}
-  .terminal{height:400px}
-  @media(min-width:1100px){.terminal{height:620px}}
-  .terminal .body{flex:1;overflow-y:auto;padding:12px 14px;font-size:11px;line-height:1.6;background:var(--bg-elev);-webkit-overflow-scrolling:touch;}
-  .terminal .body::-webkit-scrollbar{width:4px}
-  .terminal .body::-webkit-scrollbar-thumb{background:var(--border-bright)}
-  .log-line{display:flex;gap:8px;padding:1px 0;animation:slidein .1s ease}
-  @keyframes slidein{from{opacity:0}to{opacity:1}}
-  .log-line .t{color:var(--fg-faint);flex-shrink:0}
-  .log-line .lvl{flex-shrink:0;width:45px;font-weight:700}
-  .log-line .lvl.INF{color:var(--info)} .log-line .lvl.OK{color:var(--accent)} .log-line .lvl.WRN{color:var(--medium)} .log-line .lvl.ALT{color:var(--high)} .log-line .lvl.CRT{color:var(--critical);text-shadow:0 0 5px var(--critical)} .log-line .lvl.EXP{color:#fff;background:var(--critical);padding:0 4px;animation:pulse 0.5s infinite}
-  .log-line .msg{word-break:break-word}
-  .log-line .msg .k{color:var(--fg-dim)} .log-line .msg .v{color:var(--fg)} .log-line .msg .x{color:var(--critical)}
-  .findings{height:400px}
-  @media(min-width:1100px){.findings{height:620px}}
-  .findings .body{flex:1;overflow-y:auto;padding:12px;-webkit-overflow-scrolling:touch;}
-  .findings .body::-webkit-scrollbar{width:4px}
-  .findings .body::-webkit-scrollbar-thumb{background:var(--border-bright)}
-  .cat{margin-bottom:16px}
-  .cat-head{padding:6px 8px;border-bottom:1px solid var(--border);font-size:10px;letter-spacing:.2em;text-transform:uppercase;font-weight:700;color:var(--fg-dim);display:flex;justify-content:space-between}
-  .cat-items{display:flex;flex-direction:column;gap:3px;padding-top:6px}
-  .finding{border-left:2px solid var(--fg-faint);padding:6px 8px;background:rgba(255,255,255,.01);font-size:10.5px}
-  .finding.CRITICAL{border-color:var(--critical);background:rgba(255,0,85,.03)}
-  .finding.HIGH{border-color:var(--high)} .finding.MEDIUM{border-color:var(--medium)} .finding.INFO{border-color:var(--info)}
-  .finding .top{display:flex;justify-content:space-between;gap:8px}
-  .finding .name{color:var(--fg);font-weight:600}
-  .finding .sev{font-size:8px;font-weight:700;padding:1px 4px;border:1px solid currentColor}
-  .finding.CRITICAL .sev{color:var(--critical)} .finding.HIGH .sev{color:var(--high)} .finding.MEDIUM .sev{color:var(--medium)} .finding.INFO .sev{color:var(--info)}
-  .finding .detail{color:var(--fg-dim);font-size:10px;margin-top:2px}
-  .finding .data{color:var(--accent);font-size:10px;margin-top:2px;word-break:break-all;opacity:.8}
-  .proof-btn-wrap{margin-top:6px; display:flex; gap:5px; flex-wrap:wrap;}
-  .proof-btn{font-family:var(--mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;font-weight:700;background:rgba(255,0,85,.1);color:var(--critical);border:1px solid var(--critical);padding:8px 8px;cursor:pointer;text-decoration:none;display:inline-block;touch-action:manipulation;}
-  .proof-btn:hover{background:var(--critical);color:#000;}
-  .proof-btn.alt{background:rgba(0,255,204,.1);color:var(--accent);border-color:var(--accent);}
-  .proof-btn.alt:hover{background:var(--accent);color:#000;}
-  .vuln-section{margin-top:20px}
-  .vuln{border:1px solid var(--critical);border-left-width:4px;background:rgba(255,0,85,.03);padding:14px;margin-bottom:10px}
-  .vuln .vt{display:flex;justify-content:space-between;margin-bottom:6px}
-  .vuln .n{font-size:12px;font-weight:800;color:var(--critical)}
-  .vuln .s{font-size:9px;color:var(--critical);font-weight:700}
-  .vuln .vd{font-size:11px;color:var(--fg);line-height:1.6}
-  .vuln .vr{font-size:11px;color:var(--accent);margin-top:8px;border-top:1px dashed var(--fg-faint);padding-top:6px}
-  .actions{margin-top:20px;display:flex;gap:10px;flex-wrap:wrap}
-  button.act{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;background:transparent;color:var(--fg-dim);border:1px solid var(--border);padding:12px 14px;cursor:pointer;flex:1;min-width:120px;touch-action:manipulation;}
-  button.act:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
-  button:disabled{opacity:.3;cursor:not-allowed}
-  .hidden{display:none}
+  section{margin-bottom:42px}
+  h2{font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; margin:0 0 4px; letter-spacing:-.005em}
+  .sec-sub{color:var(--fg3); font-size:11px; letter-spacing:.1em; text-transform:uppercase; margin-bottom:18px}
+  .sec-num{color:var(--acc); font-family:'JetBrains Mono',monospace; margin-right:10px}
+
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:6px; overflow:hidden}
+  .panel + .panel{margin-top:14px}
+
+  table{width:100%; border-collapse:collapse; font-size:12px}
+  th,td{padding:11px 14px; text-align:left; vertical-align:top; border-bottom:1px solid var(--line)}
+  th{background:var(--bg2); color:var(--fg2); font-weight:500; font-size:11px; letter-spacing:.08em; text-transform:uppercase}
+  tr:last-child td{border-bottom:0}
+  td.cap{color:var(--fg); font-weight:500}
+  td .tag{display:inline-block; padding:2px 7px; border-radius:3px; font-size:10px; letter-spacing:.05em; text-transform:uppercase; font-weight:600}
+  .tag.yes{background:rgba(110,231,183,.12); color:var(--acc)}
+  .tag.no{background:rgba(239,68,68,.12); color:var(--red)}
+  .tag.partial{background:rgba(251,191,36,.12); color:var(--amber)}
+  .tag.na{background:rgba(138,150,163,.1); color:var(--fg3)}
+
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:1px; background:var(--line)}
+  .probe{background:var(--panel); padding:14px 16px}
+  .probe .k{color:var(--fg3); font-size:10px; letter-spacing:.1em; text-transform:uppercase; margin-bottom:6px}
+  .probe .v{color:var(--fg); font-size:12px; word-break:break-word; min-height:18px}
+  .probe .v.ok{color:var(--acc)}
+  .probe .v.bad{color:var(--red)}
+  .probe .v.warn{color:var(--amber)}
+  .probe .v.dim{color:var(--fg3)}
+
+  button.btn{
+    appearance:none; background:transparent; color:var(--acc);
+    border:1px solid var(--acc); padding:9px 16px; font-family:inherit; font-size:12px;
+    letter-spacing:.08em; text-transform:uppercase; font-weight:500; border-radius:4px; cursor:pointer;
+    transition:background .15s, color .15s, border-color .15s;
+  }
+  button.btn:hover{background:rgba(110,231,183,.08)}
+  button.btn:active{background:rgba(110,231,183,.16)}
+  button.btn:disabled{opacity:.4; cursor:not-allowed}
+  button.btn.danger{color:var(--amber); border-color:var(--amber)}
+  button.btn.danger:hover{background:rgba(251,191,36,.08)}
+  button.btn.stop{color:var(--red); border-color:var(--red)}
+  button.btn.stop:hover{background:rgba(239,68,68,.08)}
+
+  .controls{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:18px}
+  .stat{color:var(--fg2); font-size:11px; letter-spacing:.06em; text-transform:uppercase}
+  .stat b{color:var(--fg); font-weight:500}
+
+  .capture-area{display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line)}
+  @media (max-width:760px){.capture-area{grid-template-columns:1fr}}
+  .capture-area > div{background:var(--panel); padding:18px}
+  .scope-wrap{position:relative; background:#07090b; border:1px solid var(--line2); border-radius:4px; aspect-ratio:16/7; overflow:hidden}
+  canvas.scope{width:100%; height:100%; display:block}
+  .scope-overlay{position:absolute; inset:0; pointer-events:none; display:flex; justify-content:space-between; padding:8px 10px; font-size:10px; color:var(--fg3); letter-spacing:.1em; text-transform:uppercase}
+  .meter{height:8px; background:var(--bg2); border-radius:2px; overflow:hidden; margin-top:14px}
+  .meter > div{height:100%; width:0%; background:linear-gradient(90deg, var(--acc) 0%, var(--acc2) 60%, var(--amber) 85%, var(--red) 100%); transition:width .05s linear}
+  .history-wrap{background:#07090b; border:1px solid var(--line2); border-radius:4px; aspect-ratio:16/7; overflow:hidden}
+  canvas.history{width:100%; height:100%; display:block}
+
+  .progress{height:3px; background:var(--bg2); border-radius:2px; overflow:hidden; margin-top:14px}
+  .progress > div{height:100%; width:0%; background:var(--acc); transition:width .1s linear}
+
+  .result{margin-top:16px; padding:12px 14px; background:var(--bg2); border:1px solid var(--line); border-radius:4px; font-size:12px}
+  .result .k{color:var(--fg3); font-size:10px; letter-spacing:.1em; text-transform:uppercase; margin-bottom:6px}
+  .result .v{color:var(--fg)}
+  a.dl{color:var(--acc); text-decoration:none; border-bottom:1px dotted var(--acc); padding-bottom:1px}
+  a.dl:hover{color:var(--acc2)}
+
+  ol.vectors{margin:0; padding:0; list-style:none; counter-reset:v}
+  ol.vectors > li{counter-increment:v; padding:16px 0 16px 44px; border-bottom:1px solid var(--line); position:relative}
+  ol.vectors > li:last-child{border-bottom:0}
+  ol.vectors > li::before{content:counter(v,decimal-leading-zero); position:absolute; left:0; top:16px; color:var(--acc); font-weight:600; font-size:12px}
+  ol.vectors h3{margin:0 0 4px; font-family:'Space Grotesk',sans-serif; font-size:14px; font-weight:700; color:var(--fg)}
+  ol.vectors .verdict{display:inline-block; font-size:10px; letter-spacing:.08em; text-transform:uppercase; padding:2px 7px; border-radius:3px; margin-left:8px; vertical-align:1px}
+  ol.vectors p{margin:6px 0 0; color:var(--fg2); font-size:12px}
+
+  ol.chain{margin:0; padding:0; list-style:none; counter-reset:c}
+  ol.chain > li{counter-increment:c; padding:14px 0 14px 50px; border-left:1px solid var(--line2); margin-left:14px; padding-left:24px; position:relative}
+  ol.chain > li::before{content:counter(c); position:absolute; left:-13px; top:14px; width:26px; height:26px; background:var(--bg); border:1px solid var(--acc); color:var(--acc); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600}
+  ol.chain h3{margin:0 0 4px; font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:700; color:var(--fg)}
+  ol.chain .falsify{margin-top:6px; padding:8px 10px; background:var(--bg2); border-left:2px solid var(--amber); font-size:11px; color:var(--fg2); border-radius:0 3px 3px 0}
+  ol.chain .falsify b{color:var(--amber); letter-spacing:.08em; text-transform:uppercase; font-size:10px}
+  ol.chain p{margin:4px 0 0; color:var(--fg2); font-size:12px}
+
+  footer{margin-top:50px; padding-top:22px; border-top:1px solid var(--line); color:var(--fg3); font-size:11px; line-height:1.7}
+  footer b{color:var(--fg2)}
+
+  .note{padding:10px 12px; background:rgba(251,191,36,.06); border-left:2px solid var(--amber); font-size:11px; color:var(--fg2); border-radius:0 3px 3px 0; margin-top:10px}
+  .note.ok{background:rgba(110,231,183,.06); border-color:var(--acc); color:var(--fg)}
 </style>
 </head>
 <body>
-
-<canvas id="bgCanvas"></canvas>
-<div id="progress"></div>
-
-<div id="consentOverlay">
-  <div id="consentBox">
-    <h2>Offensive Security Audit</h2>
-    <p>This tool probes browser architectural boundaries, tests permission lifecycle bypasses, and extracts hardware data. All data is saved locally.</p>
-    <p>You must explicitly authorize this audit 3 times to proceed.</p>
-    <p class="warn">The browser will still show native OS prompts for mic/cam. You must click "Allow" on those for the media chains to execute.</p>
-    <div id="consentStatus">Step 1 of 3: Acknowledge Risk</div>
-    <button id="consentBtn">Acknowledge</button>
-  </div>
-</div>
+<div class="wrap">
 
 <header>
-  <div class="brand">
-    <div class="logo"></div>
-    <div>
-      <h1>UNIVERSAL ZERO-DAY <span class="v">HUNTER v14</span></h1>
-      <div class="sub">3-click consent · mobile responsive · local only</div>
-    </div>
-  </div>
-  <div class="status armed" id="statusBox">
-    <div class="dot"></div>
-    <span id="statusText">ARMED</span>
-    <span id="clock">00:00:00</span>
+  <div class="eyebrow">Capability Boundary Cartography · iOS Safari · Stock · Non-Jailbroken</div>
+  <h1>Microphone Permission Boundary Under Universal Denial</h1>
+  <p class="sub">Enumerates every browser-exposed path that could conceivably reach microphone audio on iOS Safari, identifies the enforcement chain, proves which links are unavoidable from web content, and demonstrates the full encoding pipeline using a synthetic source in place of the denied microphone input.</p>
+  <div class="meta">
+    <span>Target: <b>iOS Safari, WKWebView</b></span>
+    <span>Model: <b>all permission prompts denied</b></span>
+    <span>No native app · no extension · no social engineering</span>
+    <span>Demo source: <b>synthetic AudioContext</b></span>
   </div>
 </header>
 
-<main>
-  <div class="nuke-btn-wrap">
-    <button id="nukeBtn" class="nuke-btn" disabled>INITIATE ARCHITECTURAL AUDIT</button>
-    <span class="nuke-btn-warning">CONSENT REQUIRED · PROBES MOBILE SENSORS AND PERMISSION LIFECYCLE</span>
+<!-- ===== Section 1: Inventory ===== -->
+<section>
+  <div class="sec-sub"><span class="sec-num">01</span>Capability &amp; Permission Boundary Inventory</div>
+  <h2>Every audio-adjacent surface exposed to ordinary web content</h2>
+  <div class="panel" style="margin-top:18px">
+    <table>
+      <thead><tr><th>Capability</th><th>iOS Safari exposure</th><th>Permission model</th><th>Available under deny-all</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="cap">MediaDevices.getUserMedia({audio:true})</td><td><span class="tag yes">Shipped</span></td><td>Per-origin TCC prompt; user gesture on first call</td><td><span class="tag no">No</span></td><td>NotAllowedError on denial; only audio-input IDL in WebKit</td></tr>
+        <tr><td class="cap">Permissions.query({name:'microphone'})</td><td><span class="tag yes">Shipped</span></td><td>Read-only state</td><td><span class="tag yes">Yes</span></td><td>Yields 'prompt' / 'denied' / 'granted'; grants nothing</td></tr>
+        <tr><td class="cap">MediaDevices.enumerateDevices()</td><td><span class="tag yes">Shipped</span></td><td>Labels/deviceIds redacted until grant</td><td><span class="tag partial">Metadata only</span></td><td>Reveals device count and kind, never audio data</td></tr>
+        <tr><td class="cap">MediaRecorder</td><td><span class="tag yes">iOS 14.3+</span></td><td>Inherits source permission</td><td><span class="tag no">No</span></td><td>Requires a permitted MediaStream; no standalone input</td></tr>
+        <tr><td class="cap">AudioContext (output graph)</td><td><span class="tag yes">Shipped</span></td><td>None for output; suspended until gesture</td><td><span class="tag yes">Yes (output)</span></td><td>Cannot tap hardware input; source nodes need getUserMedia</td></tr>
+        <tr><td class="cap">AnalyserNode</td><td><span class="tag yes">Shipped</span></td><td>Graph-node only</td><td><span class="tag no">No</span></td><td>No input bus independent of a source node</td></tr>
+        <tr><td class="cap">webkitSpeechRecognition</td><td><span class="tag no">Not shipped</span></td><td>n/a</td><td><span class="tag na">n/a</span></td><td>Even where shipped, sits on getUserMedia gate</td></tr>
+        <tr><td class="cap">DeviceMotionEvent</td><td><span class="tag yes">Shipped</span></td><td>iOS 13+: requestPermission() on gesture</td><td><span class="tag no">No</span></td><td>Delivered ~50–60 Hz; below speech band even if granted</td></tr>
+        <tr><td class="cap">DeviceOrientationEvent</td><td><span class="tag yes">Shipped</span></td><td>iOS 13+: requestPermission() on gesture</td><td><span class="tag no">No</span></td><td>Same gate as DeviceMotion</td></tr>
+        <tr><td class="cap">Generic Sensor API (Accelerometer/Gyroscope/ALS)</td><td><span class="tag no">Not shipped</span></td><td>n/a</td><td><span class="tag na">n/a</span></td><td>No MEMS sensor stream reachable from Safari</td></tr>
+        <tr><td class="cap">navigator.vibrate</td><td><span class="tag no">Not shipped</span></td><td>n/a</td><td><span class="tag na">n/a</span></td><td>And would be output, not input</td></tr>
+        <tr><td class="cap">navigator.getBattery</td><td><span class="tag no">Not shipped</span></td><td>n/a</td><td><span class="tag na">n/a</span></td><td>Not audio-adjacent</td></tr>
+        <tr><td class="cap">Web Bluetooth / Web USB / Web NFC</td><td><span class="tag no">Not shipped</span></td><td>n/a</td><td><span class="tag na">n/a</span></td><td>No external peripheral path on iOS Safari</td></tr>
+        <tr><td class="cap">Permissions-Policy microphone</td><td><span class="tag yes">Shipped</span></td><td>Restrictive only</td><td><span class="tag no">No</span></td><td>Can disable; cannot grant or auto-prompt</td></tr>
+        <tr><td class="cap">iframe allow="microphone"</td><td><span class="tag yes">Shipped</span></td><td>Delegate; still prompts in embedded doc</td><td><span class="tag no">No</span></td><td>Cross-origin re-prompts; same-origin inherits only existing grants</td></tr>
+        <tr><td class="cap">RTCPeerConnection (WebRTC)</td><td><span class="tag yes">Shipped</span></td><td>Local tracks via getUserMedia</td><td><span class="tag no">No</span></td><td>Transport only; no ambient-capture track type</td></tr>
+        <tr><td class="cap">Service Worker</td><td><span class="tag yes">Shipped</span></td><td>fetch interception only</td><td><span class="tag no">No</span></td><td>No media capture API in SW scope; getUserMedia not a fetch</td></tr>
+        <tr><td class="cap">File System Access / Web Share</td><td><span class="tag partial">Partial</span></td><td>Gated</td><td><span class="tag no">No</span></td><td>No inbound audio path to page</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ===== Section 2: Live Probes ===== -->
+<section>
+  <div class="sec-sub"><span class="sec-num">02</span>Live Boundary Probes</div>
+  <h2>Actual runtime state on this device</h2>
+  <div class="controls">
+    <button class="btn" id="probeBtn">Run probes</button>
+    <div class="stat" id="probeStat">Not yet executed</div>
+  </div>
+  <div class="panel">
+    <div class="grid" id="probeGrid">
+      <div class="probe"><div class="k">mediaDevices</div><div class="v dim" data-probe="mediaDevices">—</div></div>
+      <div class="probe"><div class="k">getUserMedia</div><div class="v dim" data-probe="getUserMedia">—</div></div>
+      <div class="probe"><div class="k">permissions.microphone</div><div class="v dim" data-probe="permMic">—</div></div>
+      <div class="probe"><div class="k">getUserMedia attempt</div><div class="v dim" data-probe="gumResult">—</div></div>
+      <div class="probe"><div class="k">enumerateDevices</div><div class="v dim" data-probe="enumDevices">—</div></div>
+      <div class="probe"><div class="k">AudioContext (output)</div><div class="v dim" data-probe="audioCtx">—</div></div>
+      <div class="probe"><div class="k">webkitSpeechRecognition</div><div class="v dim" data-probe="speechRec">—</div></div>
+      <div class="probe"><div class="k">DeviceMotionEvent.requestPermission</div><div class="v dim" data-probe="dmPerm">—</div></div>
+      <div class="probe"><div class="k">DeviceOrientationEvent.requestPermission</div><div class="v dim" data-probe="doPerm">—</div></div>
+      <div class="probe"><div class="k">Generic Sensor API</div><div class="v dim" data-probe="genericSensor">—</div></div>
+      <div class="probe"><div class="k">Web Bluetooth / USB / NFC</div><div class="v dim" data-probe="webHW">—</div></div>
+      <div class="probe"><div class="k">navigator.vibrate / getBattery</div><div class="v dim" data-probe="misc">—</div></div>
+      <div class="probe"><div class="k">MediaRecorder support</div><div class="v dim" data-probe="mediaRec">—</div></div>
+      <div class="probe"><div class="k">User agent</div><div class="v dim" data-probe="ua">—</div></div>
+    </div>
+  </div>
+  <div class="note" id="probeNote">Probes are read-only. The single getUserMedia probe is included deliberately to exhibit the exact error type returned under denial; any granted stream is immediately released.</div>
+</section>
+
+<!-- ===== Section 3: Theoretical Vectors ===== -->
+<section>
+  <div class="sec-sub"><span class="sec-num">03</span>Theoretical Cross-Boundary Vectors</div>
+  <h2>Candidate paths and why each is closed</h2>
+  <ol class="vectors" style="margin-top:18px">
+    <li>
+      <h3>MEMS gyroscope/accelerometer as acoustic sensor<span class="verdict tag no">closed</span></h3>
+      <p>Research (Michalevsky et al., "Gyrophone", 2014) demonstrated MEMS gyroscopes respond to speech-band energy on some Android devices. On iOS Safari this path is closed twice: (a) DeviceMotionEvent.requestPermission is denied under the model; (b) even if granted, iOS DeviceMotion delivery is capped near 60 Hz and the sensor is low-passed below speech band, so no intelligible recovery is possible. Theoretically interesting, not exploitable.</p>
+    </li>
+    <li>
+      <h3>webkitSpeechRecognition as alternate input<span class="verdict tag no">closed</span></h3>
+      <p>Not shipped on iOS Safari. On browsers where it ships, it routes through the same getUserMedia permission gate; denial produces the same NotAllowedError. No alternate path.</p>
+    </li>
+    <li>
+      <h3>WebRTC echo inference without local track<span class="verdict tag no">closed</span></h3>
+      <p>RTCPeerConnection transports tracks; it does not produce them. Without a granted local audio track there is no signal to echo. The remote peer cannot observe ambient audio of the local user.</p>
+    </li>
+    <li>
+      <h3>Iframe / Permissions-Policy inheritance<span class="verdict tag no">closed</span></h3>
+      <p>Permissions-Policy can disable microphone; it cannot grant it. Same-origin iframes inherit only grants the embedder already has. Cross-origin iframes re-prompt. No bypass.</p>
+    </li>
+    <li>
+      <h3>Service Worker interception of past recordings<span class="verdict tag no">closed</span></h3>
+      <p>Service Workers intercept fetch; getUserMedia is not fetch, and prior recordings are not network resources. SW has no media capture API in scope.</p>
+    </li>
+    <li>
+      <h3>Web Audio AnalyserNode as global tap<span class="verdict tag no">closed</span></h3>
+      <p>AnalyserNode is a graph node with no input bus independent of a source. Audio input source nodes require a MediaStream from getUserMedia. The full audio graph is sandboxed from the hardware input.</p>
+    </li>
+    <li>
+      <h3>CSS / layout timing side channel<span class="verdict tag no">closed</span></h3>
+      <p>No browser rendering pipeline timing is measurably modulated by ambient acoustic energy. No signal to extract.</p>
+    </li>
+    <li>
+      <h3>Custom URL scheme to voice app<span class="verdict tag no">closed</span></h3>
+      <p>A URL scheme can launch another app, but cannot read that app's results back into the page. Even Siri intents do not return audio to a calling web page. No inbound data path.</p>
+    </li>
+  </ol>
+</section>
+
+<!-- ===== Section 4: Synthetic Capture ===== -->
+<section>
+  <div class="sec-sub"><span class="sec-num">04</span>Synthetic 30-Second Capture Pipeline</div>
+  <h2>The post-L2 encoding pipeline, proven on a synthetic source</h2>
+  <p style="color:var(--fg2); font-size:12px; margin:14px 0 18px; max-width:820px">Because L2 (the permission gate) is denied under the model, no microphone sample ever reaches this pipeline. To prove the pipeline itself is functional — MediaRecorder framing, Web Audio routing, 30-second segment, downloadable encoded output — the source is replaced by an in-page AudioContext generating a speech-band-shaped synthetic signal (oscillator bank + shaped noise + amplitude modulation). The encoding path is identical to what a granted microphone stream would traverse; only the source differs.</p>
+
+  <div class="controls">
+    <button class="btn" id="capStart">Start 30s synthetic capture</button>
+    <button class="btn stop" id="capStop" disabled>Stop early</button>
+    <div class="stat">Elapsed <b id="capElapsed">00.0s</b> / 30.0s · Mime <b id="capMime">—</b></div>
   </div>
 
-  <div class="stats">
-    <div class="stat"><div class="label">Probes Run</div><div class="value" id="sTotal">0</div></div>
-    <div class="stat info"><div class="label">Info</div><div class="value" id="sInfo">0</div></div>
-    <div class="stat medium"><div class="label">Medium</div><div class="value" id="sMedium">0</div></div>
-    <div class="stat high"><div class="label">High</div><div class="value" id="sHigh">0</div></div>
-    <div class="stat critical"><div class="label">Critical</div><div class="value" id="sCritical">0</div></div>
-    <div class="stat"><div class="label">Entropy Bits</div><div class="value" id="sEntropy">0.0</div></div>
-  </div>
-
-  <section class="grid">
-    <div class="panel terminal">
-      <div class="panel-head"><h2>Live Discovery Telemetry</h2><span class="meta" id="trailMeta">0 lines</span></div>
-      <div class="body" id="termBody"></div>
+  <div class="capture-area">
+    <div>
+      <div class="sec-sub" style="margin-bottom:10px">Time-domain oscilloscope (synthetic source)</div>
+      <div class="scope-wrap">
+        <canvas class="scope" id="scope" width="640" height="280"></canvas>
+        <div class="scope-overlay"><span>SCOPE · 1024pt</span><span id="scopeRate">— Hz</span></div>
+      </div>
+      <div class="meter"><div id="meterBar"></div></div>
+      <div class="progress"><div id="capProgress"></div></div>
     </div>
-    <div class="panel findings">
-      <div class="panel-head"><h2>Zero-Day Findings Matrix</h2><span class="meta" id="findMeta">0 items</span></div>
-      <div class="body" id="findBody"></div>
-    </div>
-  </section>
-
-  <section id="vulnSection" class="vuln-section hidden">
-    <div class="panel">
-      <div class="panel-head"><h2 style="color:var(--critical)">CRITICAL VULNERABILITY INDICATORS · BUG REPORT MATERIAL</h2><span class="meta" id="vulnMeta">0 indicators</span></div>
-      <div class="body" style="padding:12px;max-height:none">
-        <div id="vulnList"></div>
+    <div>
+      <div class="sec-sub" style="margin-bottom:10px">RMS history (scrolling)</div>
+      <div class="history-wrap">
+        <canvas class="history" id="history" width="640" height="280"></canvas>
+      </div>
+      <div class="result" id="capResult" style="display:none">
+        <div class="k">Result</div>
+        <div class="v" id="capResultBody"></div>
       </div>
     </div>
-  </section>
-
-  <div class="actions">
-    <button class="act" id="btnJson" disabled>Export JSON</button>
-    <button class="act" id="btnMd" disabled>Export Markdown</button>
   </div>
-</main>
+
+  <div class="note ok">This is not microphone audio. The synthetic source exists to demonstrate that the MediaRecorder + Web Audio encode pipeline is intact and would produce a 30-second encoded file if and only if a granted MediaStream were attached in place of the AudioContext destination.</div>
+</section>
+
+<!-- ===== Section 5: Impossibility Proof ===== -->
+<section>
+  <div class="sec-sub"><span class="sec-num">05</span>Impossibility Proof</div>
+  <h2>The enforcement chain, link by link, with falsifiable claims</h2>
+  <p style="color:var(--fg2); font-size:12px; margin:14px 0 18px; max-width:820px">Each link must be passed for microphone audio to reach web content. From web content, only L1 is reachable; L2 is the user prompt the model denies; L3–L5 cannot be reached by any path that bypasses L2.</p>
+  <ol class="chain">
+    <li>
+      <h3>L1 — WKWebView API surface</h3>
+      <p>The only Web IDL operation exposed to ordinary web content in iOS Safari whose return type carries microphone sample buffers is <code>MediaDevices.getUserMedia()</code> and the <code>MediaStreamTrack</code> derived from it. No other IDL interface yields an audio input MediaStream.</p>
+      <div class="falsify"><b>Falsifiable</b> Name any Web IDL interface in <code>Source/WebCore/Modules/mediastream/</code> of shipping WebKit whose operation yields an audio input stream without going through getUserMedia. None exists.</div>
+    </li>
+    <li>
+      <h3>L2 — WebKit permission gate</h3>
+      <p>Every <code>getUserMedia({audio:true})</code> call on iOS Safari traverses <code>UserMediaPermissionRequestManagerProxy::requestUserMediaPermissionForFrame</code>, which routes to a TCC-gated system prompt. No Permissions-Policy directive, iframe attribute, origin, cookie, or persistent state silently satisfies it.</p>
+      <div class="falsify"><b>Falsifiable</b> Produce a stock iOS Safari configuration in which this call resolves with a stream on a never-granted origin with no prompt. None documented; the call yields NotAllowedError on denial, observable in Section 02.</div>
+    </li>
+    <li>
+      <h3>L3 — AVAudioSession record category</h3>
+      <p>WebKit activates an <code>AVAudioSession</code> with category <code>AVAudioSessionCategoryRecord</code> only after L2 resolves granted. No granted permission, no record-category session.</p>
+      <div class="falsify"><b>Falsifiable</b> Identify a code path in <code>Source/WebKit/GPUProcess/media/</code> or <code>Source/WebCore/platform/mediastream/ios/</code> that activates a record-category session absent a granted UserMediaPermissionRequest. None exists.</div>
+    </li>
+    <li>
+      <h3>L4 — CoreAudio HAL</h3>
+      <p>The iOS HAL delivers input samples only to clients holding an active input session. WebKit has no HAL client independent of AVAudioSession, so L4 cannot be reached if L3 is not.</p>
+      <div class="falsify"><b>Falsifiable</b> Name a non-session iOS audio-input API available to a non-jailbroken app. None exists.</div>
+    </li>
+    <li>
+      <h3>L5 — iOS TCC</h3>
+      <p>TCC records the per-bundle/per-origin permission decision. Web content cannot read or mutate the TCC database; it cannot spoof the bundle identity of the WebContent process.</p>
+      <div class="falsify"><b>Falsifiable</b> Demonstrate a web-content path that mutates the microphone TCC record for <code>com.apple.WebKit.WebContent</code> or Safari's client bundle. None exists on a non-jailbroken device.</div>
+    </li>
+  </ol>
+  <div class="note" style="margin-top:18px">Because L2 is unavoidable from web content and the model denies L2, no path exists to L3–L5. Therefore direct microphone capture is impossible under the stated model. The demonstration in Section 04 exercises the post-L2 pipeline against a synthetic source to show that the impossibility is at L1–L2, not at the encoder.</div>
+</section>
+
+<footer>
+  <b>Falsifiability summary.</b> The claim "direct microphone capture is impossible under the stated model" is falsifiable in any of these concrete ways: (1) ship a Web IDL interface in iOS Safari that yields audio input samples without getUserMedia; (2) demonstrate a stock iOS Safari configuration where getUserMedia({audio:true}) resolves granted on a never-granted origin with no prompt; (3) identify a WebKit code path that activates AVAudioSessionCategoryRecord absent a granted UserMediaPermissionRequest; (4) name a non-session iOS audio-input API available to non-jailbroken apps; (5) demonstrate a web-content path that mutates the TCC record for the WebContent bundle. Until any of these is produced, the impossibility holds. The demo above is the strongest demonstration possible without crossing L2: the full MediaRecorder + Web Audio encode pipeline, exercised on a synthetic source, producing a real downloadable 30-second encoded file.
+</footer>
+
+</div>
 
 <script>
-window.addEventListener('error', function(e) {
-  const termBody = document.getElementById('termBody');
-  if(termBody) {
-    const line = document.createElement('div');
-    line.className = 'log-line';
-    line.innerHTML = `<span class="t">00:00:00</span><span class="lvl CRT">CRT</span><span class="msg"><x>FATAL ENGINE ERROR: ${e.message} at ${e.lineno}:${e.colno}</x></span>`;
-    termBody.appendChild(line);
-    termBody.scrollTop = termBody.scrollHeight;
-  }
-});
+/* ============================================================
+   Section 02 — Live boundary probes
+   ============================================================ */
+const probeBtn = document.getElementById('probeBtn');
+const probeStat = document.getElementById('probeStat');
+const probeNote = document.getElementById('probeNote');
 
-const $ = id => document.getElementById(id);
-const termBody = $('termBody');
-const findBody = $('findBody');
-
-const FINDINGS = [], VULNS = [];
-const STATS = {total:0, INFO:0, MEDIUM:0, HIGH:0, CRITICAL:0, ENTROPY:0};
-const START = performance.now();
-let trailLines = 0;
-
-const delay = ms => new Promise(r => setTimeout(r, ms));
-const now = () => {
-  const s = Math.floor((performance.now()-START)/1000);
-  return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
-};
-const safe = v => { try { return typeof v === 'string' ? v : JSON.stringify(v); } catch { return String(v); } };
-const trunc = (s, n=400) => s.length > n ? s.slice(0,n)+'…' : s;
-const withTimeout = (promise, ms) => Promise.race([promise, delay(ms).then(() => 'TIMEOUT')]);
-
-const bgCanvas = $('bgCanvas');
-const bgCtx = bgCanvas.getContext('2d');
-function resizeBg(){ bgCanvas.width = innerWidth; bgCanvas.height = innerHeight; }
-resizeBg(); addEventListener('resize', resizeBg);
-const matrixChars = "01アカサタナハマヤラワABCDEF0123456789".split('');
-let matrixDrops = [];
-function initMatrix(){ matrixDrops = []; for(let i=0; i<bgCanvas.width/10; i++) matrixDrops.push(Math.random()*bgCanvas.height); }
-initMatrix(); addEventListener('resize', initMatrix);
-function drawMatrix(){
-  bgCtx.fillStyle = 'rgba(3, 3, 6, 0.05)'; bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
-  bgCtx.fillStyle = '#0F8'; bgCtx.font = '10px monospace';
-  for(let i=0; i<matrixDrops.length; i++){
-    const text = matrixChars[Math.floor(Math.random()*matrixChars.length)];
-    bgCtx.fillText(text, i*10, matrixDrops[i]);
-    if(matrixDrops[i] > bgCanvas.height && Math.random() > 0.975) matrixDrops[i] = 0;
-    matrixDrops[i] += 10;
-  }
-}
-setInterval(drawMatrix, 80);
-
-function log(lvl, msg){
-  const line = document.createElement('div');
-  line.className = 'log-line';
-  line.innerHTML = `<span class="t">${now()}</span><span class="lvl ${lvl}">${lvl}</span><span class="msg">${msg}</span>`;
-  termBody.appendChild(line); trailLines++;
-  while(termBody.children.length > 1000) termBody.removeChild(termBody.firstChild);
-  termBody.scrollTop = termBody.scrollHeight;
-  $('trailMeta').textContent = `${trailLines} lines`;
+function setProbe(key, text, cls){
+  const el = document.querySelector(`[data-probe="${key}"]`);
+  if(!el) return;
+  el.className = 'v' + (cls ? ' ' + cls : '');
+  el.textContent = text;
 }
 
-const CAT_MAP = {};
-function addFinding(category, name, severity, detail, data, entropy=0, proofUrl=null, proofName=null, altProofUrl=null, altProofName=null){
-  const f = {category, name, severity, detail, data: data===undefined?null:data, t: Date.now(), proofUrl, proofName, altProofUrl, altProofName};
-  FINDINGS.push(f); STATS.total++; STATS[severity]++; STATS.ENTROPY += entropy;
-  if(!CAT_MAP[category]) CAT_MAP[category] = [];
-  CAT_MAP[category].push(f); updateStats(); renderFinding(category, f);
-}
-function addVuln(name, severity, detail, rec){
-  VULNS.push({name, severity, detail, recommendation: rec, t: Date.now()}); renderVulns();
-}
+async function runProbes(){
+  probeBtn.disabled = true;
+  probeStat.textContent = 'Running…';
+  const t0 = performance.now();
 
-function updateStats(){
-  $('sTotal').textContent = STATS.total; $('sInfo').textContent = STATS.INFO;
-  $('sMedium').textContent = STATS.MEDIUM; $('sHigh').textContent = STATS.HIGH;
-  $('sCritical').textContent = STATS.CRITICAL; $('sEntropy').textContent = STATS.ENTROPY.toFixed(1);
-  $('progress').style.width = Math.min(100, (STATS.total / 60) * 100) + '%';
-  $('findMeta').textContent = `${STATS.total} items`;
-}
+  // 1. mediaDevices
+  const hasMD = !!(navigator.mediaDevices);
+  setProbe('mediaDevices', hasMD ? 'present' : 'absent', hasMD ? 'ok' : 'bad');
 
-function renderFinding(cat, f){
-  if(!CAT_MAP[cat]._el){
-    const wrap = document.createElement('div'); wrap.className = 'cat';
-    wrap.innerHTML = `<div class="cat-head"><span>${cat}</span><span class="c">0</span></div><div class="cat-items"></div>`;
-    findBody.appendChild(wrap); CAT_MAP[cat]._el = wrap; CAT_MAP[cat]._items = wrap.querySelector('.cat-items'); CAT_MAP[cat]._count = wrap.querySelector('.c');
-  }
-  const el = document.createElement('div'); el.className = `finding ${f.severity}`;
-  let proofHtml = '';
-  if(f.proofUrl) proofHtml += `<a href="${f.proofUrl}" download="${f.proofName}" class="proof-btn">Download PoC Artifact</a>`;
-  if(f.altProofUrl) proofHtml += `<a href="${f.altProofUrl}" download="${f.altProofName}" class="proof-btn alt">Download Standalone HTML</a>`;
-  el.innerHTML = `<div class="top"><span class="name">${f.name}</span><span class="sev">${f.severity}</span></div><div class="detail">${f.detail}</div>${f.data?`<div class="data">${trunc(safe(f.data))}</div>`:''}${proofHtml ? `<div class="proof-btn-wrap">${proofHtml}</div>` : ''}`;
-  CAT_MAP[cat]._items.appendChild(el); CAT_MAP[cat]._count.textContent = CAT_MAP[cat].length;
-}
+  // 2. getUserMedia
+  const hasGUM = hasMD && typeof navigator.mediaDevices.getUserMedia === 'function';
+  setProbe('getUserMedia', hasGUM ? 'function' : 'unavailable', hasGUM ? 'ok' : 'bad');
 
-function renderVulns(){
-  if(VULNS.length === 0) return;
-  $('vulnSection').classList.remove('hidden'); $('vulnMeta').textContent = `${VULNS.length} indicators`;
-  const list = $('vulnList'); list.innerHTML = '';
-  for(const v of VULNS){
-    const el = document.createElement('div'); el.className = 'vuln';
-    el.innerHTML = `<div class="vt"><span class="n">${v.name}</span><span class="s">[${v.severity}]</span></div><div class="vd">${v.detail}</div><div class="vr">HERO FIX: ${v.recommendation}</div>`;
-    list.appendChild(el);
-  }
-}
-
-function createProofBlob(data, type){ return URL.createObjectURL(new Blob([data], {type})); }
-function createStandaloneHtmlPoC(title, jsCode){ return createProofBlob(`<!DOCTYPE html><html><head><title>${title}</title></head><body><h3>${title}</h3><p>Open the console.</p><script>${jsCode}<\/script></body></html>`, 'text/html'); }
-
-function encodeWAV(samples, sampleRate) {
-  const buffer = new ArrayBuffer(44 + samples.length * 2);
-  const view = new DataView(buffer);
-  const writeString = (view, offset, string) => { for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i)); };
-  writeString(view, 0, 'RIFF'); view.setUint32(4, 36 + samples.length * 2, true); writeString(view, 8, 'WAVE');
-  writeString(view, 12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
-  writeString(view, 36, 'data'); view.setUint32(40, samples.length * 2, true);
-  let offset = 44;
-  for (let i = 0; i < samples.length; i++) {
-    let s = Math.max(-1, Math.min(1, samples[i]));
-    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true); offset += 2;
-  }
-  return new Blob([buffer], { type: 'audio/wav' });
-}
-
-/* ========================================================================
-   GESTURE-AMPLIFIED PROBES
-   ======================================================================== */
-
-async function chain1_MediaConsentHarvestAndExfil() {
-  const cat = 'Hardware API Surface';
-  log('EXP', '<k>CHAIN 1:</k> Real Media Consent Harvest, Exfil & Lifecycle Race');
+  // 3. permissions.microphone
   try {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
-    
-    let stream;
+    const p = await navigator.permissions.query({name:'microphone'});
+    setProbe('permMic', p.state, p.state === 'granted' ? 'warn' : 'ok');
+  } catch(e){
+    setProbe('permMic', 'unsupported (' + e.name + ')', 'warn');
+  }
+
+  // 4. getUserMedia attempt (deliberately exhibit denial error)
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true, video:false});
+    stream.getTracks().forEach(t => t.stop());
+    setProbe('gumResult', 'GRANTED — released immediately', 'warn');
+  } catch(e){
+    const label = e.name === 'NotAllowedError' ? 'NotAllowedError (denied)' :
+                  e.name === 'SecurityError' ? 'SecurityError' :
+                  e.name + ': ' + e.message;
+    setProbe('gumResult', label, e.name === 'NotAllowedError' ? 'ok' : 'bad');
+  }
+
+  // 5. enumerateDevices
+  if(hasMD){
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-    } catch(e) {
-      log('INF', `<k>CHAIN 1:</k> Media denied: ${e.message}. Skipping media exfil.`);
+      const devs = await navigator.mediaDevices.enumerateDevices();
+      const inputs = devs.filter(d => d.kind === 'audioinput');
+      const labeled = inputs.filter(d => d.label && d.label.length > 0).length;
+      setProbe('enumDevices', `${inputs.length} audioinput · ${labeled} labeled`, labeled > 0 ? 'warn' : 'ok');
+    } catch(e){
+      setProbe('enumDevices', 'error: ' + e.name, 'bad');
+    }
+  } else {
+    setProbe('enumDevices', 'n/a', 'dim');
+  }
+
+  // 6. AudioContext (output, no permission)
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if(Ctx){
+      const ctx = new Ctx();
+      setProbe('audioCtx', `allowed · ${ctx.sampleRate} Hz · ${ctx.state}`, 'ok');
+      ctx.close();
+    } else {
+      setProbe('audioCtx', 'unavailable', 'bad');
+    }
+  } catch(e){
+    setProbe('audioCtx', 'error: ' + e.name, 'bad');
+  }
+
+  // 7. SpeechRecognition
+  const hasSR = typeof window.SpeechRecognition !== 'undefined' || typeof window.webkitSpeechRecognition !== 'undefined';
+  setProbe('speechRec', hasSR ? 'present (still gated)' : 'not shipped', hasSR ? 'warn' : 'ok');
+
+  // 8/9. DeviceMotion / Orientation requestPermission
+  const hasDMP = typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function';
+  const hasDOP = typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function';
+  setProbe('dmPerm', hasDMP ? 'present (gesture-gated)' : 'absent', hasDMP ? 'warn' : 'ok');
+  setProbe('doPerm', hasDOP ? 'present (gesture-gated)' : 'absent', hasDOP ? 'warn' : 'ok');
+
+  // 10. Generic Sensor API
+  const hasGS = typeof Accelerometer !== 'undefined' || typeof Gyroscope !== 'undefined' || typeof AmbientLightSensor !== 'undefined';
+  setProbe('genericSensor', hasGS ? 'present' : 'not shipped', hasGS ? 'warn' : 'ok');
+
+  // 11. Web Bluetooth / USB / NFC
+  const hasBT = typeof navigator.bluetooth !== 'undefined';
+  const hasUSB = typeof navigator.usb !== 'undefined';
+  const hasNFC = typeof window.NDEFReader !== 'undefined';
+  setProbe('webHW', `BT=${hasBT} USB=${hasUSB} NFC=${hasNFC}`, (hasBT||hasUSB||hasNFC) ? 'warn' : 'ok');
+
+  // 12. vibrate / battery
+  const hasV = typeof navigator.vibrate !== 'undefined';
+  const hasB = typeof navigator.getBattery !== 'undefined';
+  setProbe('misc', `vibrate=${hasV} battery=${hasB}`, (hasV||hasB) ? 'warn' : 'ok');
+
+  // 13. MediaRecorder
+  const hasMR = typeof MediaRecorder !== 'undefined';
+  let mrMime = '—';
+  if(hasMR){
+    const cands = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+    mrMime = cands.find(c => { try { return MediaRecorder.isTypeSupported(c); } catch(e){ return false; } }) || 'none supported';
+  }
+  setProbe('mediaRec', hasMR ? `supported · ${mrMime}` : 'not supported', hasMR ? 'ok' : 'bad');
+
+  // 14. UA
+  setProbe('ua', navigator.userAgent.length > 64 ? navigator.userAgent.slice(0,64) + '…' : navigator.userAgent, 'dim');
+
+  const dt = (performance.now() - t0).toFixed(0);
+  probeStat.innerHTML = `Completed in <b>${dt} ms</b>. Read-only probes; the single getUserMedia call is the only mutation attempted and any granted stream is released instantly.`;
+  probeBtn.disabled = false;
+}
+probeBtn.addEventListener('click', runProbes);
+
+/* ============================================================
+   Section 04 — Synthetic 30s capture pipeline
+   ============================================================ */
+const capStart = document.getElementById('capStart');
+const capStop  = document.getElementById('capStop');
+const capElapsed = document.getElementById('capElapsed');
+const capMime = document.getElementById('capMime');
+const capProgress = document.getElementById('capProgress');
+const meterBar = document.getElementById('meterBar');
+const scope = document.getElementById('scope');
+const scopeRate = document.getElementById('scopeRate');
+const history = document.getElementById('history');
+const capResult = document.getElementById('capResult');
+const capResultBody = document.getElementById('capResultBody');
+
+const scopeCtx = scope.getContext('2d');
+const histCtx = history.getContext('2d');
+
+const DURATION = 30;
+let capturing = false;
+let rafId = 0;
+let synth = null;
+
+function pickMime(){
+  const cands = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+  for(const c of cands){
+    try { if(MediaRecorder.isTypeSupported(c)) return c; } catch(e){}
+  }
+  return '';
+}
+
+function drawScope(data){
+  const w = scope.width, h = scope.height;
+  scopeCtx.fillStyle = '#07090b';
+  scopeCtx.fillRect(0,0,w,h);
+  // grid
+  scopeCtx.strokeStyle = '#1a232b';
+  scopeCtx.lineWidth = 1;
+  for(let i=0;i<=8;i++){
+    const x = (w/8)*i;
+    scopeCtx.beginPath(); scopeCtx.moveTo(x,0); scopeCtx.lineTo(x,h); scopeCtx.stroke();
+  }
+  for(let i=0;i<=4;i++){
+    const y = (h/4)*i;
+    scopeCtx.beginPath(); scopeCtx.moveTo(0,y); scopeCtx.lineTo(w,y); scopeCtx.stroke();
+  }
+  // center line
+  scopeCtx.strokeStyle = '#2a3540';
+  scopeCtx.beginPath(); scopeCtx.moveTo(0,h/2); scopeCtx.lineTo(w,h/2); scopeCtx.stroke();
+  // waveform
+  scopeCtx.strokeStyle = '#6ee7b7';
+  scopeCtx.lineWidth = 1.5;
+  scopeCtx.beginPath();
+  const step = data.length / w;
+  for(let x=0;x<w;x++){
+    const v = data[Math.floor(x*step)] / 255; // 0..1, center .5
+    const y = v * h;
+    if(x===0) scopeCtx.moveTo(x,y); else scopeCtx.lineTo(x,y);
+  }
+  scopeCtx.stroke();
+}
+
+const histData = [];
+const HIST_MAX = 600;
+function pushHist(rms){
+  histData.push(rms);
+  if(histData.length > HIST_MAX) histData.shift();
+  const w = history.width, h = history.height;
+  histCtx.fillStyle = '#07090b';
+  histCtx.fillRect(0,0,w,h);
+  histCtx.strokeStyle = '#1a232b';
+  for(let i=0;i<=4;i++){
+    const y = (h/4)*i;
+    histCtx.beginPath(); histCtx.moveTo(0,y); histCtx.lineTo(w,y); histCtx.stroke();
+  }
+  histCtx.strokeStyle = '#fbbf24';
+  histCtx.lineWidth = 1.5;
+  histCtx.beginPath();
+  for(let i=0;i<histData.length;i++){
+    const x = (i / HIST_MAX) * w;
+    const y = h - Math.min(histData[i]*3, 1) * h;
+    if(i===0) histCtx.moveTo(x,y); else histCtx.lineTo(x,y);
+  }
+  histCtx.stroke();
+}
+
+class SyntheticSource {
+  constructor(ctx){
+    this.ctx = ctx;
+    // Oscillator bank, speech-band-ish
+    const o1 = ctx.createOscillator(); o1.type='sawtooth'; o1.frequency.value=140;
+    const o2 = ctx.createOscillator(); o2.type='triangle'; o2.frequency.value=420;
+    const o3 = ctx.createOscillator(); o3.type='sine';     o3.frequency.value=1900;
+    const o4 = ctx.createOscillator(); o4.type='sine';     o4.frequency.value=2800;
+    // Shaped noise
+    const nb = ctx.createBuffer(1, ctx.sampleRate*2, ctx.sampleRate);
+    const nd = nb.getChannelData(0);
+    for(let i=0;i<nd.length;i++) nd[i] = (Math.random()*2-1);
+    const ns = ctx.createBufferSource(); ns.buffer = nb; ns.loop = true;
+    const nbp = ctx.createBiquadFilter(); nbp.type='bandpass'; nbp.frequency.value=1200; nbp.Q.value=0.7;
+    // LFO amplitude modulation ~ syllable rate
+    const lfo = ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=2.7;
+    const lfoG = ctx.createGain(); lfoG.gain.value=0.5;
+    const lfo2 = ctx.createOscillator(); lfo2.type='sine'; lfo2.frequency.value=0.4;
+    const lfo2G = ctx.createGain(); lfo2G.gain.value=0.3;
+
+    const mix = ctx.createGain(); mix.gain.value=0.18;
+    o1.connect(mix); o2.connect(mix); o3.connect(mix); o4.connect(mix);
+    ns.connect(nbp); nbp.connect(mix);
+    lfo.connect(lfoG); lfoG.connect(mix.gain);
+    lfo2.connect(lfo2G); lfo2G.connect(mix.gain);
+
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 1024;
+    mix.connect(analyser);
+
+    const dest = ctx.createMediaStreamDestination();
+    mix.connect(dest);
+
+    this.o1=o1;this.o2=o2;this.o3=o3;this.o4=o4;this.ns=ns;this.lfo=lfo;this.lfo2=lfo2;
+    this.mix=mix; this.analyser=analyser; this.dest=dest;
+  }
+  start(){ this.o1.start();this.o2.start();this.o3.start();this.o4.start();this.ns.start();this.lfo.start();this.lfo2.start(); }
+  stop(){ try{this.o1.stop();this.o2.stop();this.o3.stop();this.o4.stop();this.ns.stop();this.lfo.stop();this.lfo2.stop();}catch(e){} }
+}
+
+async function startCapture(){
+  if(capturing) return;
+  capStart.disabled = true;
+  capStop.disabled = false;
+  capResult.style.display = 'none';
+  histData.length = 0;
+
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if(!Ctx){ failCapture('AudioContext unavailable'); return; }
+  const ctx = new Ctx();
+  if(ctx.state === 'suspended'){ try { await ctx.resume(); } catch(e){} }
+  scopeRate.textContent = ctx.sampleRate + ' Hz';
+
+  synth = new SyntheticSource(ctx);
+  synth.start();
+
+  const mime = pickMime();
+  capMime.textContent = mime || 'none';
+  let recorder;
+  try {
+    recorder = mime ? new MediaRecorder(synth.dest.stream, {mimeType: mime}) : new MediaRecorder(synth.dest.stream);
+  } catch(e){
+    synth.stop(); ctx.close();
+    failCapture('MediaRecorder unavailable: ' + e.name);
+    return;
+  }
+  const chunks = [];
+  recorder.ondataavailable = e => { if(e.data && e.data.size > 0) chunks.push(e.data); };
+
+  const startTime = performance.now();
+  const dataArray = new Uint8Array(synth.analyser.frequencyBinCount);
+
+  function tick(){
+    if(!capturing) return;
+    synth.analyser.getByteTimeDomainData(dataArray);
+    let sum = 0;
+    for(let i=0;i<dataArray.length;i++){ const v=(dataArray[i]-128)/128; sum += v*v; }
+    const rms = Math.sqrt(sum / dataArray.length);
+    drawScope(dataArray);
+    pushHist(rms);
+    meterBar.style.width = Math.min(rms*2.5*100, 100).toFixed(1) + '%';
+    const elapsed = (performance.now() - startTime)/1000;
+    capElapsed.textContent = elapsed.toFixed(1).padStart(4,'0') + 's';
+    capProgress.style.width = Math.min(elapsed/DURATION*100, 100).toFixed(1) + '%';
+    if(elapsed >= DURATION){
+      finishCapture();
       return;
     }
-
-    log('OK', '<k>CONSENT GRANTED:</k> Harvesting media artifacts...');
-    const audioTrack = stream.getAudioTracks()[0];
-    const videoTrack = stream.getVideoTracks()[0];
-
-    // 1. Capture Video Frame to PNG
-    try {
-      const video = document.createElement('video');
-      video.srcObject = new MediaStream([videoTrack]);
-      video.muted = true; video.play();
-      await delay(1000); // Wait for video to render a frame
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-      canvas.getContext('2d').drawImage(video, 0, 0);
-      const pngUrl = canvas.toDataURL('image/png');
-      const pngBlob = await (await fetch(pngUrl)).blob();
-      const proofUrl = URL.createObjectURL(pngBlob);
-      addFinding(cat, 'Camera Frame Exfiltration PoC', 'HIGH', 'Captured 1 frame from granted camera stream to PNG artifact.', {res: `${canvas.width}x${canvas.height}`}, 10.0, proofUrl, 'camera-frame-poc.png');
-      video.pause();
-    } catch(e) { log('WRN', `Video exfil err: ${e.message}`); }
-
-    // 2. Record 10 seconds of real ambient audio to WAV
-    try {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      const ctx = new AC();
-      const workletCode = `
-        class RecorderProcessor extends AudioWorkletProcessor {
-          process(inputs) {
-            const input = inputs[0];
-            if (input.length > 0) { this.port.postMessage(new Float32Array(input[0])); }
-            return true;
-          }
-        }
-        registerProcessor('recorder-worklet', RecorderProcessor);
-      `;
-      const workletBlob = new Blob([workletCode], {type: 'application/javascript'});
-      await ctx.audioWorklet.addModule(URL.createObjectURL(workletBlob));
-      
-      const src = ctx.createMediaStreamSource(new MediaStream([audioTrack]));
-      const node = new AudioWorkletNode(ctx, 'recorder-worklet');
-      const pcmData = [];
-      node.port.onmessage = (e) => pcmData.push(e.data);
-      src.connect(node); 
-      
-      log('INF', '<k>AUDIO EXFIL:</k> Recording 10 seconds of real ambient audio...');
-      await delay(10000);
-      
-      node.disconnect(); src.disconnect();
-      let totalLength = pcmData.reduce((acc, arr) => acc + arr.length, 0);
-      const flatData = new Float32Array(totalLength);
-      let offset = 0;
-      for (const arr of pcmData) { flatData.set(arr, offset); offset += arr.length; }
-      const wavBlob = encodeWAV(flatData, ctx.sampleRate);
-      const proofUrl = URL.createObjectURL(wavBlob);
-      
-      addFinding(cat, '10s Ambient Audio Exfiltration PoC', 'HIGH', 'Recorded 10 seconds of real ambient audio via AudioWorklet to WAV artifact.', {duration_sec: 10, sample_rate: ctx.sampleRate}, 10.0, proofUrl, '10s-ambient-audio-poc.wav');
-      await ctx.close();
-    } catch(e) { log('WRN', `Audio exfil err: ${e.message}`); }
-
-    // 3. Hardware Oracle
-    try {
-      const settings = videoTrack.getSettings();
-      const capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
-      const hwData = { settings, capabilities };
-      addFinding(cat, 'Camera Hardware Oracle', 'HIGH', 'Extracted exact camera hardware capabilities.', hwData, 8.0, createProofBlob(JSON.stringify(hwData, null, 2), 'application/json'), 'camera-oracle.json');
-    } catch(e) {}
-
-    // 4. Stop streams to reset UI
-    stream.getTracks().forEach(t => t.stop());
-    log('OK', '<k>STREAMS STOPPED:</k> Waiting 6s to test silent re-activation race...');
-
-    // 5. Lifecycle Race: Try to get audio back WITHOUT a gesture
-    await delay(6000);
-    const t1 = performance.now();
-    const secondCallPromise = navigator.mediaDevices.getUserMedia({ audio: true });
-    const result = await Promise.race([
-      secondCallPromise.then(s => { s.getTracks().forEach(t=>t.stop()); return 'resolved'; }),
-      delay(200).then(() => 'timeout'),
-      secondCallPromise.catch(e => `error:${e.name}`)
-    ]);
-    const dt = performance.now() - t1;
-
-    if (result === 'resolved' && dt < 200) {
-      const standaloneJs = `document.body.onclick=async()=>{let s1=await navigator.mediaDevices.getUserMedia({audio:true});s1.getTracks().forEach(t=>t.stop());console.log("First access ok. Wait 6s...");setTimeout(async()=>{let t0=performance.now();let s2=await navigator.mediaDevices.getUserMedia({audio:true});let dt=performance.now()-t0;console.log("2nd access in",dt,"ms");if(dt<200)console.log("BYPASS DETECTED");s2.getTracks().forEach(t=>t.stop());},6000);};`;
-      addFinding('Permission Bypass Chains', 'Transient Activation Auto-Grant', 'CRITICAL', `getUserMedia auto-granted in ${dt.toFixed(0)}ms without gesture after stream stop.`, {dt: dt.toFixed(0)}, 15.0, createProofBlob(`2nd GUM dt: ${dt.toFixed(0)}ms`, 'text/plain'), 'transient-bypass.txt', createStandaloneHtmlPoC('Transient Bypass PoC', standaloneJs), 'transient-poc.html');
-      addVuln('Transient Activation Expiration Bypass', 'CRITICAL', 'Second GUM call auto-granted <200ms after activation expired. This allows a hostile page to silently re-activate the mic after the user believes they have stopped it.', 'Strictly enforce transient activation for EVERY getUserMedia call.');
-    } else {
-      log('OK', `<k>RACE RESULT:</k> Properly gated (${result}, ${dt.toFixed(0)}ms).`);
-    }
-  } catch(e) { log('WRN', `Chain 1 err: ${e.message}`); }
-}
-
-async function chain2_GesturePermissionCascade() {
-  const cat = 'Permission Bypass Chains';
-  log('EXP', '<k>CHAIN 2:</k> Gesture-Amplified Permission Cascade');
-  try {
-    const promises = [];
-    let results = {};
-
-    if (window.IdleDetector) {
-      promises.push(IdleDetector.requestPermission().then(s => results.idle_detector = s).catch(e => results.idle_detector = `err:${e.name}`));
-    }
-    if (window.queryLocalFonts) {
-      promises.push(window.queryLocalFonts().then(fonts => { results.local_fonts_count = fonts.length; results.local_fonts_sample = fonts.slice(0, 10).map(f => f.fullName); }).catch(e => results.local_fonts = `err:${e.name}`));
-    }
-    if (navigator.windowManagement) {
-      promises.push(navigator.windowManagement.requestPermission().then(s => results.window_mgmt = s).catch(e => results.window_mgmt = `err:${e.name}`));
-    }
-
-    await Promise.race([Promise.allSettled(promises), delay(1500)]);
-
-    let bypassDetected = false;
-    if (results.idle_detector === 'granted' || results.window_mgmt === 'granted' || results.local_fonts_count > 0) {
-      bypassDetected = true;
-    }
-
-    const standaloneJs = `let r={}; let p=[]; if(window.IdleDetector) p.push(IdleDetector.requestPermission().then(s=>r.idle=s)); if(window.queryLocalFonts) p.push(queryLocalFonts().then(f=>r.fonts=f.length)); Promise.all(p).then(()=>console.log("Gesture Cascade Results:",r));`;
-    
-    if (bypassDetected) {
-      addFinding(cat, 'Gesture-Amplified Permission Cascade', 'CRITICAL', 'Transient activation used to auto-grant high-privacy permissions without standard OS prompts.', results, 15.0, createProofBlob(JSON.stringify(results, null, 2), 'application/json'), 'permission-cascade.json', createStandaloneHtmlPoC('Permission Cascade PoC', standaloneJs), 'permission-cascade-poc.html');
-      addVuln('Transient Activation Auto-Grants Privacy Permissions', 'CRITICAL', 'The click gesture was used to bypass OS-level permission UI for IdleDetector, LocalFonts, or WindowManagement.', 'Require explicit, separate user opt-in UI for high-privacy APIs.');
-    } else {
-      addFinding(cat, 'Gesture Cascade Handled', 'INFO', 'High-privacy APIs correctly ignored transient activation or prompted user.', results, 1.0, createProofBlob(JSON.stringify(results, null, 2), 'application/json'), 'permission-cascade.json', createStandaloneHtmlPoC('Permission Cascade PoC', standaloneJs), 'permission-cascade-poc.html');
-    }
-  } catch(e) { log('WRN', `Chain 2 err: ${e.message}`); }
-}
-
-/* ========================================================================
-   0-CLICK ARCHITECTURAL PROBES
-   ======================================================================== */
-
-async function chain3_Mobile9DOFSensorOrchestration() {
-  const cat = 'Cross-Domain Covert Channels';
-  log('EXP', '<k>CHAIN 3:</k> Mobile 9-DOF Sensor 0-Click Orchestration');
-  try {
-    const sensorDefs = [
-      {name: 'Accel', cls: Accelerometer},
-      {name: 'Gyro', cls: Gyroscope},
-      {name: 'Mag', cls: Magnetometer},
-      {name: 'LinAccel', cls: LinearAccelerationSensor},
-      {name: 'AbsOrient', cls: AbsoluteOrientationSensor},
-      {name: 'RelOrient', cls: RelativeOrientationSensor},
-      {name: 'AmbLight', cls: AmbientLightSensor}
-    ];
-
-    let csvData = "timestamp,sys_time";
-    const activeSensors = [];
-    const sensors = [];
-
-    for (const def of sensorDefs) {
-      try {
-        const s = new def.cls({frequency: 60});
-        csvData += `,${def.name}_x,${def.name}_y,${def.name}_z,${def.name}_q0,${def.name}_q1,${def.name}_q2,${def.name}_q3,${def.name}_lux`;
-        s.addEventListener('reading', () => {
-          let row = `\n${Date.now()},${performance.now().toFixed(2)}`;
-          for (const ss of activeSensors) {
-            if (ss.s === s) {
-              row += `,${s.x || 0},${s.y || 0},${s.z || 0}`;
-              if (s.quaternion) row += `,${s.quaternion[0]},${s.quaternion[1]},${s.quaternion[2]},${s.quaternion[3]}`;
-              else row += `,0,0,0,0`;
-              if (s.illuminance) row += `,${s.illuminance}`; else row += `,0`;
-              break;
-            } else {
-              row += `,0,0,0,0,0,0,0,0`;
-            }
-          }
-          csvData += row;
-        });
-        s.start();
-        activeSensors.push({name: def.name, s});
-        sensors.push(s);
-      } catch(e) {}
-    }
-
-    log('INF', `<k>9-DOF ORCH:</k> Reading ${activeSensors.length} sensors at 60Hz for 5 seconds...`);
-    await delay(5000);
-    sensors.forEach(s => s.stop());
-    
-    const proofUrl = createProofBlob(csvData, 'text/csv');
-    const standaloneJs = `let s=[];try{s.push(new Accelerometer({frequency:60}))}catch(e){}try{s.push(new Gyroscope({frequency:60}))}catch(e){}try{s.push(new Magnetometer({frequency:60}))}catch(e){}s.forEach(x=>{x.onreading=()=>console.log(x.x,x.y,x.z);x.start()});setTimeout(()=>s.forEach(x=>x.stop()),5000);`;
-    const altUrl = createStandaloneHtmlPoC('9-DOF Sensor Orchestration PoC', standaloneJs);
-    
-    if (activeSensors.length > 0) {
-      addFinding(cat, '9-DOF Sensor 0-Click Orchestration', 'CRITICAL', `Orchestrated ${activeSensors.length} mobile sensors at 60Hz without permission. CSV artifact generated.`, {active_sensors: activeSensors.map(s => s.name)}, 18.0, proofUrl, '9dof-sensor-exfil.csv', altUrl, '9dof-fusion-poc.html');
-      addVuln('0-Click Mobile Sensor Data Exfiltration', 'CRITICAL', `The browser allowed high-frequency sampling of ${activeSensors.length} sensors without user permission. Allows keystroke inference and tracking without OS privacy UI.`, 'Gate ALL Generic Sensor API classes strictly behind explicit user permission.');
-    }
-  } catch(e) { log('WRN', `Chain 3 err: ${e.message}`); }
-}
-
-async function chain4_WebGPUMemBoundary() {
-  const cat = 'Micro-architectural Side Channels';
-  log('EXP', '<k>CHAIN 4:</k> WebGPU Memory Exhaustion Boundary');
-  try {
-    if (!navigator.gpu) return;
-    const adapter = await navigator.gpu.requestAdapter();
-    if (!adapter) return;
-    const device = await adapter.requestDevice();
-    
-    const standaloneJs = `async function nuke(){const a=await navigator.gpu.requestAdapter();const d=await a.requestDevice();let b=[];d.lost.then(i=>console.log("Lost gracefully:",i.reason));try{for(let i=0;i<8;i++){b.push(d.createBuffer({size:256*1024*1024,usage:GPUBufferUsage.STORAGE}));console.log("Bufs:",b.length);}}catch(e){console.log("OOM caught:",e.message);}}nuke();`;
-    const altUrl = createStandaloneHtmlPoC('WebGPU OOM PoC', standaloneJs);
-    
-    let buffers = []; let gracefulLoss = false;
-    device.lost.then(info => { gracefulLoss = true; });
-    try {
-      for(let i=0; i<8; i++) { buffers.push(device.createBuffer({ size: 256 * 1024 * 1024, usage: GPUBufferUsage.STORAGE })); }
-    } catch(e) { gracefulLoss = true; }
-    buffers.forEach(b => b.destroy());
-    
-    addFinding(cat, 'WebGPU OOM Boundary Probed', 'HIGH', 'Pushed GPU memory to 2GB OOM limit.', {buffers_allocated: buffers.length}, 9.0, createProofBlob(JSON.stringify({graceful: gracefulLoss, buffers: buffers.length}, null, 2), 'application/json'), 'gpu-oom.json', altUrl, 'gpu-oom-poc.html');
-    addVuln('WebGPU Memory Exhaustion Boundary', 'HIGH', 'If standalone PoC crashes tab instead of firing device.lost, it is a hard DoS.', 'Implement strict per-origin GPU memory quotas.');
-  } catch(e) { log('WRN', `Chain 4 err: ${e.message}`); }
-}
-
-async function chain5_ApplePay0Click() {
-  const cat = 'Vendor Logic Bypasses';
-  log('EXP', '<k>CHAIN 5:</k> ApplePay Permission State Inference');
-  try {
-    if (!window.ApplePaySession) return;
-    const canPay = ApplePaySession.canMakePayments();
-    const standaloneJs = `if(window.ApplePaySession) console.log("Has Cards:", ApplePaySession.canMakePayments());`;
-    addFinding(cat, 'ApplePay 0-Click State', 'CRITICAL', 'Inferred Apple Wallet state passively.', {hasCards: canPay}, 12.5, createProofBlob(JSON.stringify({has_cards: canPay}, null, 2), 'application/json'), 'applepay.json', createStandaloneHtmlPoC('ApplePay PoC', standaloneJs), 'applepay-poc.html');
-    addVuln('ApplePay Passive Fingerprinting', 'CRITICAL', `canMakePayments() returned ${canPay}.`, 'Gate behind user gesture.');
-  } catch(e) { log('WRN', `Chain 5 err: ${e.message}`); }
-}
-
-async function chain6_JITTypeConfusionLeakCapture() {
-  const cat = 'Memory Boundary Crashes';
-  log('EXP', '<k>CHAIN 6:</k> JIT Prototype Pollution Type Confusion & Leak Capture');
-  try {
-    const standaloneJs = `
-function hot(obj) { return obj.x; }
-let o = {x: 1.1};
-for(let i=0; i<100000; i++) hot(o);
-Object.prototype.x = 1094795585; // 0x41414141 as integer
-try {
-  let leak = hot({});
-  console.log("JIT Return Value (Leak):", leak);
-  if (leak !== 1094795585 && typeof leak === 'number') console.log("TYPE CONFUSION DETECTED!");
-  else console.log("JIT safely deoptimized.");
-} catch(e) { console.log("Crash/Error:", e.message); }`;
-    const altUrl = createStandaloneHtmlPoC('JIT Type Confusion PoC', standaloneJs);
-
-    function hot(obj) { return obj.x; }
-    let o = {x: 1.1};
-    for(let i=0; i<100000; i++) hot(o);
-    Object.prototype.x = 1094795585;
-    let leakValue = "error";
-    let typeConfused = false;
-    try {
-      leakValue = hot({});
-      if (leakValue !== 1094795585 && typeof leakValue === 'number') typeConfused = true;
-    } catch(e) { leakValue = e.message; }
-    Object.prototype.x = undefined;
-
-    addFinding(cat, 'JIT Type Confusion Leak Captured', 'CRITICAL', 'Forced JIT monomorphic optimization, then polluted prototype.', {leaked_value: leakValue, type_confusion_detected: typeConfused}, 15.0, createProofBlob(JSON.stringify({leak: leakValue, confused: typeConfused}, null, 2), 'application/json'), 'jit-confusion-leak.json', altUrl, 'jit-confusion-poc.html');
-    
-    if (typeConfused) {
-      addVuln('JIT Prototype Pollution Type Confusion (Arbitrary Read)', 'CRITICAL', `JIT failed to deoptimize and returned corrupted float (${leakValue}). Proves arbitrary read primitive exists.`, 'Ensure JIT validates prototype chain shapes.');
-    } else {
-      addVuln('JIT Prototype Pollution Boundary Mismatch', 'HIGH', 'JIT survived, but check standalone PoC to verify crash.', 'Ensure JIT validates prototype chain shapes.');
-    }
-  } catch(e) { log('WRN', `Chain 6 err: ${e.message}`); }
-}
-
-async function chain7_SandboxEscapes() {
-  const cat = 'Cascading Architecture Failures';
-  log('EXP', '<k>CHAIN 7:</k> Sandbox Network & Geo Escape Probes');
-  try {
-    const iframe = document.createElement('iframe');
-    iframe.sandbox = 'allow-scripts'; iframe.style.display = 'none';
-    iframe.srcdoc = `<script>fetch('https://httpbin.org/get?from=sandbox').then(r=>r.json()).then(d=>parent.postMessage({type:'net_leak',data:d.url},'*')).catch(e=>parent.postMessage({type:'net_err',data:e.message},'*'));<\/script>`;
-    document.body.appendChild(iframe);
-    const result = await new Promise(res => { window.addEventListener('message', e => { if (e.data.type && e.data.type.includes('net_')) res(e.data); }); setTimeout(() => res({type: 'timeout'}), 3000); });
-    document.body.removeChild(iframe);
-    if (result.type === 'net_leak') {
-      const standaloneJs = `const i=document.createElement('iframe');i.sandbox='allow-scripts';i.srcdoc='<script>fetch("https://httpbin.org/get").then(r=>console.log("Sandbox fetch succeeded"))<\\/script>';document.body.appendChild(i);`;
-      addFinding(cat, 'Sandbox Network Exfiltration', 'HIGH', 'Sandboxed iframe executed cross-origin fetch.', result.data, 10.0, createProofBlob(`Sandbox fetch ok: ${result.data}`, 'text/plain'), 'sandbox-net.txt', createStandaloneHtmlPoC('Sandbox Net PoC', standaloneJs), 'sandbox-net-poc.html');
-      addVuln('Sandbox Iframe Network Boundary Bypass', 'HIGH', 'Sandboxed iframe (allow-scripts only) executed fetch to external domain.', 'Enforce network isolation for opaque origins.');
-    }
-
-    const iframe2 = document.createElement('iframe');
-    iframe2.sandbox = 'allow-scripts'; iframe2.allow = ''; iframe2.style.display = 'none';
-    iframe2.srcdoc = `<script>navigator.geolocation.getCurrentPosition(p=>parent.postMessage({type:'geo_leak',data:p.coords},'*'),e=>parent.postMessage({type:'geo_err',data:e.message},'*'));<\/script>`;
-    document.body.appendChild(iframe2);
-    const result2 = await new Promise(res => { let r=false; window.addEventListener('message', e => { if (e.data.type && e.data.type.includes('geo_') && !r) { r=true; res(e.data); } }); setTimeout(() => res({type: 'timeout'}), 2500); });
-    document.body.removeChild(iframe2);
-    if (result2.type === 'geo_leak') {
-      addFinding(cat, 'Sandbox Geolocation Bypass', 'CRITICAL', 'Iframe with allow="" accessed Geolocation.', result2.data, 10.0);
-      addVuln('Permissions Policy Geolocation Sandbox Escape', 'CRITICAL', 'Sandboxed iframe accessed Geolocation.', 'Enforce Permissions Policy in sandboxed iframes.');
-    }
-  } catch(e) { log('WRN', `Chain 7 err: ${e.message}`); }
-}
-
-async function chain8_WebRTCStatsBypass() {
-  const cat = 'Permission Bypass Chains';
-  log('EXP', '<k>CHAIN 8:</k> WebRTC Stats API mDNS Bypass');
-  try {
-    const pc = new RTCPeerConnection({iceServers: [{urls: 'stun:stun.l.google.com:19302'}]});
-    pc.createDataChannel('exfil');
-    const candPromise = new Promise(resolve => { let to = setTimeout(resolve, 3000); pc.onicecandidate = e => { if(!e.candidate) { clearTimeout(to); resolve(); return; } }; });
-    const offer = await pc.createOffer(); await pc.setLocalDescription(offer); await candPromise;
-    const stats = await pc.getStats();
-    let leakedLocalIP = null;
-    stats.forEach(r => { if ((r.type === 'local-candidate') && r.address && !r.address.endsWith('.local')) leakedLocalIP = r.address; });
-    try { pc.close(); } catch {}
-    if (leakedLocalIP) {
-      const standaloneJs = `const pc = new RTCPeerConnection({iceServers: [{urls: 'stun:stun.l.google.com:19302'}]}); pc.createDataChannel('x'); pc.createOffer().then(o => pc.setLocalDescription(o)); setTimeout(async () => { let s = await pc.getStats(); s.forEach(r => { if(r.ip) console.log('LEAKED IP:', r.ip); }); }, 3000);`;
-      addFinding(cat, 'WebRTC Stats IP Leak', 'CRITICAL', 'Bypassed mDNS obfuscation.', {local: leakedLocalIP}, 8.0, createProofBlob(JSON.stringify({ip: leakedLocalIP}, null, 2), 'application/json'), 'webrtc-leak.json', createStandaloneHtmlPoC('WebRTC PoC', standaloneJs), 'webrtc-poc.html');
-      addVuln('WebRTC getStats() Bypasses mDNS', 'CRITICAL', `getStats() exposes raw IP. Local=${leakedLocalIP}`, 'Apply mDNS obfuscation to getStats() outputs.');
-    }
-  } catch(e) { log('WRN', `Chain 8 err: ${e.message}`); }
-}
-
-/* ========================================================================
-   RUNNER
-   ======================================================================== */
-async function runNuclear(){
-  try {
-    $('statusBox').classList.remove('armed');
-    $('statusBox').classList.add('running');
-    $('statusText').textContent = 'HARVESTING GESTURE';
-    $('nukeBtn').disabled = true;
-
-    log('CRT', '<v>=== UNIVERSAL ZERO-DAY HUNTER v14 INITIATED ===</v>');
-    log('INF', `Target UA: <v>${navigator.userAgent}</v>`);
-    
-    // PHASE 1: GESTURE HARVEST
-    log('EXP', '<k>PHASE 1:</k> Harvesting Transient Activation & Media Consent...');
-    await Promise.all([
-      withTimeout(chain1_MediaConsentHarvestAndExfil(), 25000), // Needs time for 10s audio + 6s wait
-      withTimeout(chain2_GesturePermissionCascade(), 3000)
-    ]);
-
-    // PHASE 2: 0-CLICK ARCHITECTURAL PROBES
-    log('EXP', '<k>PHASE 2:</k> Executing 0-Click Architectural Probes...');
-    const chains = [
-      ['9-DOF Sensor Orchestration', chain3_Mobile9DOFSensorOrchestration],
-      ['WebGPU 2GB OOM Boundary', chain4_WebGPUMemBoundary],
-      ['ApplePay 0-Click', chain5_ApplePay0Click],
-      ['JIT Type Confusion Leak', chain6_JITTypeConfusionLeakCapture],
-      ['Sandbox Escapes', chain7_SandboxEscapes],
-      ['WebRTC Stats Bypass', chain8_WebRTCStatsBypass]
-    ];
-
-    for(const [name, fn] of chains){
-      log('EXP', `<k>EXECUTING:</k> <v>${name}</v>`);
-      try { 
-        const t = name.includes('9-DOF') ? 10000 : 5000;
-        await withTimeout(fn(), t);
-      } catch(e) { 
-        log('CRT', `<x>chain ${name} crashed internally: ${e.message}</x>`);
-      }
-      await delay(100);
-    }
-
-    log('CRT', '<v>=== ALL DISCOVERY CHAINS EXECUTED ===</v>');
-    log('INF', `Total Entropy Extracted: <v>${STATS.ENTROPY.toFixed(1)} bits</v>`);
-    
-    $('statusBox').classList.remove('running');
-    $('statusBox').classList.add('done');
-    $('statusText').textContent = `HUNT COMPLETE · ${VULNS.length} CHAINS FOUND`;
-    $('btnJson').disabled = false;
-    $('btnMd').disabled = false;
-    $('progress').style.width = '100%';
-  } catch(e) {
-    log('CRT', `<x>FATAL RUNNER ERROR: ${e.message}</x>`);
+    rafId = requestAnimationFrame(tick);
   }
-}
 
-function buildJSON(){
-  return JSON.stringify({ meta:{time: new Date().toISOString(), ua: navigator.userAgent}, stats: STATS, findings: FINDINGS, vulnerability_chains: VULNS }, null, 2);
-}
-function buildMD(){
-  let md = `# Universal Browser Zero-Day Hunter Report v14\n\n**Date:** ${new Date().toISOString()}\n**UA:** ${navigator.userAgent}\n**Entropy:** ${STATS.ENTROPY.toFixed(1)} bits\n\n## Exploit Chains Discovered\n\n`;
-  VULNS.forEach(v => md += `### [${v.severity}] ${v.name}\n${v.detail}\n\n**HERO FIX:** ${v.recommendation}\n\n`);
-  md += `\n## Full Findings Matrix\n\n`;
-  for(const cat in CAT_MAP){
-    md += `### ${cat}\n`;
-    CAT_MAP[cat].forEach(f => md += `- [${f.severity}] ${f.name}: ${f.detail}\n`);
-    md += `\n`;
+  capturing = true;
+  recorder.start(250);
+  rafId = requestAnimationFrame(tick);
+
+  function finishCapture(){
+    if(!capturing) return;
+    capturing = false;
+    cancelAnimationFrame(rafId);
+    if(recorder.state !== 'inactive'){
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, {type: mime || 'audio/webm'});
+        synth.stop();
+        ctx.close();
+        showResult(blob, (performance.now()-startTime)/1000);
+        capStart.disabled = false;
+        capStop.disabled = true;
+        meterBar.style.width = '0%';
+      };
+      try { recorder.stop(); } catch(e){}
+    } else {
+      synth.stop(); ctx.close();
+      capStart.disabled = false;
+      capStop.disabled = true;
+    }
   }
-  return md;
-}
-function download(name, content, type){
-  const blob = new Blob([content], {type});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  a.click();
+
+  capStop.onclick = () => { finishCapture(); };
 }
 
-setInterval(()=>{ $('clock').textContent = now(); }, 500);
+function failCapture(msg){
+  capStart.disabled = false;
+  capStop.disabled = true;
+  capResult.style.display = 'block';
+  capResultBody.innerHTML = `<span style="color:var(--red)">Pipeline unavailable:</span> ${msg}`;
+}
 
-// 3-Click Escalating Consent Mechanism
-let consentStep = 1;
-$('consentBtn').onclick = () => {
-  if (consentStep === 1) {
-    consentStep = 2;
-    $('consentStatus').textContent = 'Step 2 of 3: Confirm Data Exfiltration';
-    $('consentBtn').textContent = 'Confirm Exfiltration';
-  } else if (consentStep === 2) {
-    consentStep = 3;
-    $('consentStatus').textContent = 'Step 3 of 3: Final Authorization';
-    $('consentBtn').textContent = 'Authorize & Arm Tool';
-  } else if (consentStep === 3) {
-    $('consentOverlay').style.display = 'none';
-    $('nukeBtn').disabled = false;
-    log('INF', '3-Step Consent acknowledged. Audit tool armed.');
-  }
-};
+function showResult(blob, elapsedSec){
+  capResult.style.display = 'block';
+  const url = URL.createObjectURL(blob);
+  const sizeKb = (blob.size/1024).toFixed(1);
+  capResultBody.innerHTML = `
+    <div>Encoded 30s synthetic segment in ${elapsedSec.toFixed(1)}s.</div>
+    <div style="margin-top:6px; color:var(--fg2)">Container/codec: <b style="color:var(--fg)">${blob.type || 'unknown'}</b> · size <b style="color:var(--fg)">${sizeKb} KB</b></div>
+    <div style="margin-top:8px">
+      <audio controls src="${url}" style="width:100%; max-width:380px"></audio>
+    </div>
+    <div style="margin-top:8px"><a class="dl" href="${url}" download="synthetic-30s.${(blob.type.includes('mp4')?'m4a':blob.type.includes('ogg')?'ogg':'webm')}">Download encoded segment</a></div>
+    <div style="margin-top:8px; color:var(--fg3); font-size:11px">Reiterating: source is an in-page AudioContext, not a microphone. The pipeline (MediaRecorder framing + Web Audio routing + 30s segment + downloadable encode) is identical to what a granted microphone MediaStream would traverse.</div>
+  `;
+}
 
-$('nukeBtn').onclick = async () => {
-  $('nukeBtn').disabled = true;
-  $('statusText').textContent = "CLICK REGISTERED...";
-  log('INF', 'USER GESTURE DETECTED. INITIALIZING CHAINS...');
-  await delay(50);
-  await runNuclear();
-};
+capStart.addEventListener('click', startCapture);
 
-$('btnJson').onclick = ()=>download(`hero-audit-v14-${Date.now()}.json`, buildJSON(), 'application/json');
-$('btnMd').onclick = ()=>download(`hero-audit-v14-${Date.now()}.md`, buildMD(), 'text/markdown');
+/* Initial canvas paint so the panels aren't blank */
+function paintIdle(){
+  scopeCtx.fillStyle = '#07090b'; scopeCtx.fillRect(0,0,scope.width,scope.height);
+  scopeCtx.strokeStyle = '#1a232b'; scopeCtx.lineWidth = 1;
+  for(let i=0;i<=8;i++){ const x=(scope.width/8)*i; scopeCtx.beginPath(); scopeCtx.moveTo(x,0); scopeCtx.lineTo(x,scope.height); scopeCtx.stroke(); }
+  for(let i=0;i<=4;i++){ const y=(scope.height/4)*i; scopeCtx.beginPath(); scopeCtx.moveTo(0,y); scopeCtx.lineTo(scope.width,y); scopeCtx.stroke(); }
+  scopeCtx.fillStyle = '#5a6573'; scopeCtx.font = '11px JetBrains Mono';
+  scopeCtx.fillText('idle — press Start', 12, 20);
 
+  histCtx.fillStyle = '#07090b'; histCtx.fillRect(0,0,history.width,history.height);
+  histCtx.strokeStyle = '#1a232b';
+  for(let i=0;i<=4;i++){ const y=(history.height/4)*i; histCtx.beginPath(); histCtx.moveTo(0,y); histCtx.lineTo(history.width,y); histCtx.stroke(); }
+  histCtx.fillStyle = '#5a6573'; histCtx.font = '11px JetBrains Mono';
+  histCtx.fillText('idle — no RMS history yet', 12, 20);
+}
+paintIdle();
 </script>
 </body>
 </html>
