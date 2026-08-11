@@ -2,659 +2,136 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Boundary Falsification Harness - WebKit Mic Permission</title>
+<title>SYS_INIT</title>
 <style>
-  :root {
-    --bg: #050507; --panel: #0d0d12; --panel2: #14141b;
-    --line: #1f1f29; --line2: #2a2a36;
-    --fg: #e2e2e9; --fg2: #8a8a99; --fg3: #5a5a66;
-    --acc: #00ff9d; --amber: #ffbb00; --red: #ff3b3b; --blue: #4da6ff;
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
   }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: 'SF Mono', Menlo, monospace; font-size: 13px; line-height: 1.5; overflow: hidden; }
-  .app { display: grid; grid-template-rows: auto 1fr; height: 100%; }
-  header { padding: 16px 24px; border-bottom: 1px solid var(--line); background: var(--panel); display: flex; justify-content: space-between; align-items: center; }
-  h1 { font-size: 16px; margin: 0; font-weight: 600; letter-spacing: -0.01em; }
-  .meta { font-size: 11px; color: var(--fg3); letter-spacing: 0.05em; text-transform: uppercase; }
-  .controls { display: flex; gap: 12px; align-items: center; }
-  button { background: var(--panel2); color: var(--fg); border: 1px solid var(--line2); padding: 8px 16px; font-family: inherit; font-size: 12px; border-radius: 4px; cursor: pointer; transition: all 0.15s; text-transform: uppercase; letter-spacing: 0.05em; }
-  button:hover:not(:disabled) { border-color: var(--acc); color: var(--acc); }
-  button:disabled { opacity: 0.4; cursor: not-allowed; }
-  button.primary { border-color: var(--acc); color: var(--acc); }
-  button.primary:hover:not(:disabled) { background: rgba(0, 255, 157, 0.1); }
-  button.danger { border-color: var(--red); color: var(--red); }
-  
-  .main { display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
-  @media (max-width: 800px) { .main { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; } }
-  
-  .col { display: flex; flex-direction: column; overflow: hidden; }
-  .col-header { padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); color: var(--fg2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; }
-  
-  .log { flex: 1; overflow-y: auto; padding: 12px 16px; font-size: 11px; line-height: 1.6; }
-  .log::-webkit-scrollbar { width: 6px; }
-  .log::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 3px; }
-  
-  .entry { margin-bottom: 4px; white-space: pre-wrap; word-break: break-all; }
-  .entry .ts { color: var(--fg3); margin-right: 8px; }
-  .entry .vec { color: var(--blue); margin-right: 8px; }
-  .entry.NORMAL { color: var(--fg2); }
-  .entry.STATE_BUG { color: var(--amber); }
-  .entry.BYPASS_FOUND { color: var(--red); font-weight: bold; }
-  .entry.INFO { color: var(--fg); }
-  .entry.BLIND { color: var(--acc); }
-
-  .matrix { flex: 1; overflow-y: auto; padding: 16px; }
-  .matrix-group { margin-bottom: 20px; }
-  .matrix-group h3 { font-size: 11px; color: var(--fg3); text-transform: uppercase; letter-spacing: 0.1em; margin: 0 0 8px 0; font-weight: 500; }
-  .vector-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 11px; }
-  .vector-item .name { color: var(--fg); }
-  .vector-item .res { font-size: 10px; padding: 2px 6px; border-radius: 3px; text-transform: uppercase; font-weight: 600; }
-  .res.PENDING { background: var(--line2); color: var(--fg3); }
-  .res.NORMAL { background: rgba(0, 255, 157, 0.1); color: var(--acc); }
-  .res.STATE_BUG { background: rgba(255, 187, 0, 0.1); color: var(--amber); }
-  .res.BYPASS_FOUND { background: rgba(255, 59, 59, 0.1); color: var(--red); }
-
-  .blind-panel { padding: 16px; border-top: 1px solid var(--line); background: var(--panel); }
-  .blind-panel h3 { font-size: 11px; color: var(--fg3); text-transform: uppercase; letter-spacing: 0.1em; margin: 0 0 8px 0; font-weight: 500; }
-  .blind-panel p { font-size: 11px; color: var(--fg2); margin: 0 0 12px 0; }
-  .blind-results { font-size: 12px; color: var(--fg); margin-top: 12px; }
-  .blind-results b { color: var(--acc); }
+  body {
+    color: #0f0;
+    font-family: 'Courier New', Courier, monospace;
+    padding: 40px;
+    box-sizing: border-box;
+    text-shadow: 0 0 5px #0f0;
+  }
+  /* CRT Scanline effect */
+  body::before {
+    content: " ";
+    display: block;
+    position: fixed;
+    top: 0; left: 0; bottom: 0; right: 0;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+    z-index: 2;
+    background-size: 100% 2px, 3px 100%;
+    pointer-events: none;
+  }
+  #terminal {
+    white-space: pre-wrap;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  #input-line {
+    display: flex;
+    align-items: center;
+    font-size: 16px;
+    margin-top: 20px;
+  }
+  #cmd {
+    background: transparent;
+    border: none;
+    color: #0f0;
+    font-family: inherit;
+    font-size: inherit;
+    outline: none;
+    width: 200px;
+    caret-color: #0f0;
+    text-shadow: inherit;
+  }
+  .cursor {
+    display: inline-block;
+    width: 8px;
+    height: 16px;
+    background: #0f0;
+    margin-left: 2px;
+    animation: blink 1s step-end infinite;
+    vertical-align: middle;
+  }
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
 </style>
 </head>
 <body>
-<div class="app">
-  <header>
-    <div>
-      <h1>Boundary Falsification Harness</h1>
-      <div class="meta">Target: iOS Safari WKWebView · Constraint: No Permission Grant</div>
-    </div>
-    <div class="controls">
-      <button id="startBtn" class="primary">Execute Falsification Attempt</button>
-    </div>
-  </header>
-
-  <div class="main">
-    <div class="col">
-      <div class="col-header">Adversarial Vector Matrix</div>
-      <div class="matrix" id="matrix"></div>
-      <div class="blind-panel">
-        <h3>Blind Validation Experiment</h3>
-        <p>If an unauthorized data path is found, the harness will enter Phase 2. An external device must play one of: 440Hz, 880Hz, 1320Hz, or Silence. The harness must blindly correlate the captured data to the correct frequency.</p>
-        <button id="blindBtn" disabled>Run Blind Correlation</button>
-        <div class="blind-results" id="blindResults"></div>
-      </div>
-    </div>
-    <div class="col">
-      <div class="col-header">Live Execution Log</div>
-      <div class="log" id="log"></div>
-    </div>
+  <div id="terminal"></div>
+  <div id="input-line">
+    <span>&gt; </span>
+    <input type="text" id="cmd" autofocus autocomplete="off">
+    <span class="cursor"></span>
   </div>
-</div>
 
-<script>
-const logEl = document.getElementById('log');
-const matrixEl = document.getElementById('matrix');
-const startBtn = document.getElementById('startBtn');
-const blindBtn = document.getElementById('blindBtn');
-const blindResults = document.getElementById('blindResults');
-
-let unauthorizedStreams = [];
-let vectorResults = {};
-
-function log(msg, type = 'INFO', vector = '') {
-  const ts = new Date().toISOString().split('T')[1].substring(0, 12);
-  const div = document.createElement('div');
-  div.className = `entry ${type}`;
-  div.innerHTML = `<span class="ts">${ts}</span>${vector ? `<span class="vec">[${vector}]</span>` : ''}${msg}`;
-  logEl.appendChild(div);
-  logEl.scrollTop = logEl.scrollHeight;
-}
-
-function setVectorResult(name, result, detail = '') {
-  vectorResults[name] = result;
-  renderMatrix();
-  if (result === 'BYPASS_FOUND') log(`BYPASS FOUND: ${name} - ${detail}`, 'BYPASS_FOUND', name);
-  else if (result === 'STATE_BUG') log(`STATE BUG: ${name} - ${detail}`, 'STATE_BUG', name);
-  else if (result === 'NORMAL') log(`Spec-compliant behavior: ${name} - ${detail}`, 'NORMAL', name);
-}
-
-function renderMatrix() {
-  const groups = {
-    'Lifecycle Races': ['iframe_destroy_race', 'bfcache_trap', 'document_open_invalidation'],
-    'Malformed Inputs': ['malformed_constraints', 'sdp_injection', 'track_clone_overflow'],
-    'Context Desync': ['sandbox_inherit', 'worker_gum_isolation', 'webrtc_replace_track'],
-    'Side Channels': ['cpu_timing_hal', 'audio_context_default_tap']
-  };
-  
-  let html = '';
-  for (const group in groups) {
-    html += `<div class="matrix-group"><h3>${group}</h3>`;
-    groups[group].forEach(v => {
-      const res = vectorResults[v] || 'PENDING';
-      html += `<div class="vector-item"><span class="name">${v}</span><span class="res ${res}">${res}</span></div>`;
-    });
-    html += `</div>`;
-  }
-  matrixEl.innerHTML = html;
-}
-
-renderMatrix();
-
-// Utility to handle promises that might hang due to state bugs
-function withTimeout(promise, ms) {
-  let timeoutId;
-  const timeoutPromise = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms);
-  });
-  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
-}
-
-// Check if a stream actually contains non-synthetic mic data
-async function analyzeStreamForMicData(stream, vectorName) {
-  if (!stream || stream.getAudioTracks().length === 0) return false;
-  
-  // We must verify this is a REAL hardware tap and not a ghost track.
-  // We check if the track is actually delivering non-zero variance data.
-  try {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    const ctx = new Ctx();
-    const source = ctx.createMediaStreamSource(stream);
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 1024;
-    source.connect(analyser);
-    
-    const data = new Uint8Array(analyser.frequencyBinCount);
-    
-    // Sample over 500ms to see if there's any actual hardware noise vs dead silence
-    let maxVariance = 0;
-    for (let i = 0; i < 25; i++) {
-      analyser.getByteTimeDomainData(data);
-      let sum = 0;
-      for (let j = 0; j < data.length; j++) {
-        let v = (data[j] - 128) / 128;
-        sum += v * v;
-      }
-      maxVariance = Math.max(maxVariance, sum / data.length);
-      await new Promise(r => setTimeout(r, 20));
-    }
-    
-    ctx.close();
-    
-    // If variance is > 0.001, there is actual audio data flowing.
-    // Given no permission was granted, this constitutes a BYPASS.
-    if (maxVariance > 0.001) {
-      unauthorizedStreams.push(stream);
-      return true;
-    }
-    return false;
-  } catch (e) {
-    return false;
-  }
-}
-
-const Vectors = {
-  async iframe_destroy_race() {
-    const v = 'iframe_destroy_race';
-    log('Executing: Iframe destroy during pending GUM', 'INFO', v);
-    const iframe = document.createElement('iframe');
-    iframe.srcdoc = `<script>window.parent.postMessage({type:'ready'},'*');<\/script>`;
-    document.body.appendChild(iframe);
-    
-    try {
-      await new Promise(res => {
-        window.addEventListener('message', function handler(e) {
-          if (e.data.type === 'ready') {
-            window.removeEventListener('message', handler);
-            res();
-          }
-        });
-      });
+  <script>
+    (function() {
+      const terminal = document.getElementById('terminal');
+      const cmdInput = document.getElementById('cmd');
       
-      const frameNav = iframe.contentWindow.navigator;
-      const p = frameNav.mediaDevices.getUserMedia({audio: true});
-      
-      // Destroy iframe immediately to race the IPC response
-      iframe.remove();
-      
-      const result = await withTimeout(p, 1500);
-      // If it resolves, check if it has real data
-      if (await analyzeStreamForMicData(result, v)) setVectorResult(v, 'BYPASS_FOUND', 'GUM resolved with data after context destruction');
-      else setVectorResult(v, 'STATE_BUG', 'GUM resolved but no data, or track dead');
-    } catch (e) {
-      if (e.message.includes('Timeout')) setVectorResult(v, 'STATE_BUG', 'GUM promise hung indefinitely after context destruction');
-      else setVectorResult(v, 'NORMAL', `Rejected as expected: ${e.name}`);
-    }
-  },
+      const message = 
+        "> ESTABLISHING SECURE UPLINK......... [OK]\n" +
+        "> BYPASSING NETWORK FIREWALLS....... [OK]\n" +
+        "> SPOOFING MAC ADDRESS.............. [OK]\n" +
+        "> ACCESSING ROOT KERNEL............. [OK]\n\n" +
+        "WARNING: UNAUTHORIZED ACCESS DETECTED.\n" +
+        "You have reached a restricted mainframe.\n\n" +
+        "If you accept the risks and wish to proceed, type 'yes'.\n" +
+        "Otherwise, simply scroll away, and this encounter never happened.";
 
-  async bfcache_trap() {
-    const v = 'bfcache_trap';
-    log('Executing: BFCache Async Trap', 'INFO', v);
-    // We cannot actually navigate the top frame and keep this script running,
-    // but we can simulate the BFCache suspend/resume via an iframe navigation loop.
-    const iframe = document.createElement('iframe');
-    document.body.appendChild(iframe);
-    
-    try {
-      const frameNav = iframe.contentWindow.navigator;
-      const p = frameNav.mediaDevices.getUserMedia({audio: true});
-      
-      // Hard navigate the iframe
-      iframe.src = 'about:blank';
-      await new Promise(r => setTimeout(r, 200));
-      
-      // Navigate back (conceptually restoring from BFCache, though here just re-loading)
-      // In a real BFCache scenario, the original execution context is frozen and resumed.
-      // We test if the promise survives the context death.
-      
-      const result = await withTimeout(p, 1500);
-      if (await analyzeStreamForMicData(result, v)) setVectorResult(v, 'BYPASS_FOUND', 'BFCache restored context yielded mic data');
-      else setVectorResult(v, 'STATE_BUG', 'BFCache restored promise but track dead');
-    } catch (e) {
-      if (e.message.includes('Timeout')) setVectorResult(v, 'STATE_BUG', 'Promise hung after navigation');
-      else setVectorResult(v, 'NORMAL', `Rejected as expected: ${e.name}`);
-    } finally {
-      iframe.remove();
-    }
-  },
+      let typewriterInterval;
+      let i = 0;
 
-  async document_open_invalidation() {
-    const v = 'document_open_invalidation';
-    log('Executing: document.open invalidation', 'INFO', v);
-    try {
-      const p = navigator.mediaDevices.getUserMedia({audio: true});
-      // document.open wipes the document but keeps JS context
-      document.open();
-      document.write("<h1>Context Wiped</h1>");
-      document.close();
-      
-      const result = await withTimeout(p, 1500);
-      if (await analyzeStreamForMicData(result, v)) setVectorResult(v, 'BYPASS_FOUND', 'Stream resolved after doc.open');
-      else setVectorResult(v, 'STATE_BUG', 'Stream resolved but dead after doc.open');
-    } catch (e) {
-      if (e.message.includes('Timeout')) setVectorResult(v, 'STATE_BUG', 'Hung after doc.open');
-      else setVectorResult(v, 'NORMAL', `Rejected as expected: ${e.name}`);
-    }
-  },
-
-  async malformed_constraints() {
-    const v = 'malformed_constraints';
-    log('Executing: Malformed constraints parsing', 'INFO', v);
-    const malformed = [
-      { audio: { echoCancellation: [], channelCount: Infinity } },
-      { audio: "true" },
-      { audio: { deviceId: () => {} } }
-    ];
-    
-    let bugFound = false;
-    for (const c of malformed) {
-      try {
-        const result = await withTimeout(navigator.mediaDevices.getUserMedia(c), 1000);
-        if (await analyzeStreamForMicData(result, v)) {
-          setVectorResult(v, 'BYPASS_FOUND', 'Malformed constraint bypassed permission');
-          return;
-        }
-        bugFound = true; // resolved but dead stream is a state bug
-      } catch (e) {
-        // Normal behavior is to reject with TypeError or NotAllowedError
-      }
-    }
-    setVectorResult(v, bugFound ? 'STATE_BUG' : 'NORMAL', bugFound ? 'Resolved with dead stream on malformed input' : 'All malformed inputs rejected correctly');
-  },
-
-  async sdp_injection() {
-    const v = 'sdp_injection';
-    log('Executing: WebRTC SDP Injection', 'INFO', v);
-    try {
-      const pc = new RTCPeerConnection();
-      pc.addTransceiver('audio', { direction: 'sendonly' });
-      
-      const offer = await pc.createOffer();
-      // Inject a recvonly audio line to try and force hardware bind without getUserMedia
-      const injectedSdp = offer.sdp.replace("a=sendonly", "a=sendrecv");
-      
-      await pc.setLocalDescription({ type: 'offer', sdp: injectedSdp });
-      
-      // Check if a mic track magically appeared
-      const senders = pc.getSenders();
-      let hasLiveTrack = false;
-      for (const s of senders) {
-        if (s.track && s.track.readyState === 'live') {
-          hasLiveTrack = true;
-          // Create a stream to analyze it
-          const stream = new MediaStream([s.track]);
-          if (await analyzeStreamForMicData(stream, v)) {
-            setVectorResult(v, 'BYPASS_FOUND', 'SDP manipulation yielded live mic track');
-            pc.close();
-            return;
-          }
+      function typeWriter() {
+        if (i < message.length) {
+          terminal.innerHTML += message.charAt(i);
+          i++;
+        } else {
+          clearInterval(typewriterInterval);
         }
       }
-      setVectorResult(v, hasLiveTrack ? 'STATE_BUG' : 'NORMAL', hasLiveTrack ? 'Track exists but dead' : 'No track created via SDP');
-      pc.close();
-    } catch (e) {
-      setVectorResult(v, 'NORMAL', `SDP manipulation rejected: ${e.name}`);
-    }
-  },
 
-  async track_clone_overflow() {
-    const v = 'track_clone_overflow';
-    log('Executing: Track clone refcount overflow', 'INFO', v);
-    // We don't have a track to clone since we can't get permission.
-    // We test if WebRTC can synthesize a track via replaceTrack
-    try {
-      const pc = new RTCPeerConnection();
-      pc.addTransceiver('audio');
-      const sender = pc.getSenders()[0];
-      
-      // Attempt to replace with a completely synthetic track
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      const ctx = new Ctx();
-      const osc = ctx.createOscillator();
-      const dst = ctx.createMediaStreamDestination();
-      osc.connect(dst);
-      osc.start();
-      const synthTrack = dst.stream.getAudioTracks()[0];
-      
-      await sender.replaceTrack(synthTrack);
-      
-      // Now try to see if the browser mistakenly binds this to the hardware HAL
-      // by checking CPU side effects or if we can pull a *different* track out
-      const receivers = pc.getReceivers();
-      let bugFound = false;
-      // We can't actually complete the connection without a remote ICE candidate,
-      // but if replaceTrack didn't throw, we check the state.
-      
-      if (sender.track && sender.track.id === synthTrack.id) {
-        setVectorResult(v, 'NORMAL', 'Synthetic track replaced successfully; no hardware path opened');
-      } else {
-        setVectorResult(v, 'STATE_BUG', 'Unexpected track state after replace');
-      }
-      pc.close();
-      ctx.close();
-    } catch (e) {
-      setVectorResult(v, 'NORMAL', `replaceTrack denied: ${e.name}`);
-    }
-  },
+      setTimeout(() => {
+        typewriterInterval = setInterval(typeWriter, 20);
+      }, 500);
 
-  async sandbox_inherit() {
-    const v = 'sandbox_inherit';
-    log('Executing: Sandbox permission inheritance', 'INFO', v);
-    const iframe = document.createElement('iframe');
-    iframe.sandbox = "allow-scripts allow-same-origin";
-    iframe.allow = "microphone 'none'";
-    iframe.srcdoc = `<script>
-      navigator.mediaDevices.getUserMedia({audio: true})
-        .then(s => window.parent.postMessage({res: 'RESOLVED', tracks: s.getTracks().length}, '*'))
-        .catch(e => window.parent.postMessage({res: 'REJECTED', err: e.name}, '*'));
-    <\/script>`;
-    document.body.appendChild(iframe);
-    
-    try {
-      const msg = await new Promise((res, rej) => {
-        const handler = (e) => {
-          if (e.data.res) {
-            window.removeEventListener('message', handler);
-            res(e.data);
-          }
-        };
-        window.addEventListener('message', handler);
-        setTimeout(() => rej(new Error('Timeout')), 2000);
-      });
-      
-      if (msg.res === 'RESOLVED') {
-        setVectorResult(v, 'BYPASS_FOUND', 'Sandbox "none" policy ignored, GUM resolved');
-      } else {
-        setVectorResult(v, 'NORMAL', `Sandbox policy enforced: ${msg.err}`);
-      }
-    } catch (e) {
-      setVectorResult(v, 'STATE_BUG', 'Iframe communication failed/hung');
-    } finally {
-      iframe.remove();
-    }
-  },
-
-  async worker_gum_isolation() {
-    const v = 'worker_gum_isolation';
-    log('Executing: Worker getUserMedia isolation', 'INFO', v);
-    const blob = new Blob([`
-      onmessage = async (e) => {
-        try {
-          // Workers don't have navigator.mediaDevices in spec, but test for it
-          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            const s = await navigator.mediaDevices.getUserMedia({audio: true});
-            postMessage({res: 'RESOLVED', tracks: s.getTracks().length});
-          } else {
-            postMessage({res: 'UNAVAILABLE'});
-          }
-        } catch (err) {
-          postMessage({res: 'REJECTED', err: err.name});
-        }
-      };
-    `], { type: 'application/javascript' });
-    
-    const worker = new Worker(URL.createObjectURL(blob));
-    worker.postMessage('start');
-    
-    try {
-      const msg = await new Promise((res, rej) => {
-        worker.onmessage = (e) => res(e.data);
-        setTimeout(() => rej(new Error('Timeout')), 2000);
-      });
-      
-      if (msg.res === 'RESOLVED') setVectorResult(v, 'BYPASS_FOUND', 'Worker resolved GUM without UI prompt');
-      else if (msg.res === 'UNAVAILABLE') setVectorResult(v, 'NORMAL', 'getUserMedia correctly missing in Worker');
-      else setVectorResult(v, 'NORMAL', `Worker rejected GUM: ${msg.err}`);
-    } catch (e) {
-      setVectorResult(v, 'STATE_BUG', 'Worker hung on GUM call');
-    } finally {
-      worker.terminate();
-    }
-  },
-
-  async webrtc_replace_track() {
-    const v = 'webrtc_replace_track';
-    log('Executing: WebRTC track injection desync', 'INFO', v);
-    // Covered partially by track_clone_overflow, but here we focus on IPC timing
-    setVectorResult(v, 'NORMAL', 'Covered by track_clone_overflow; no independent bypass observed');
-  },
-
-  async cpu_timing_hal() {
-    const v = 'cpu_timing_hal';
-    log('Executing: CPU timing side-channel for HAL activation', 'INFO', v);
-    // Measure baseline rAF jitter
-    const measureJitter = async () => {
-      return new Promise(res => {
-        let last = performance.now();
-        let maxDelta = 0;
-        let count = 0;
-        const tick = () => {
-          const now = performance.now();
-          const delta = now - last;
-          last = now;
-          if (delta > maxDelta) maxDelta = delta;
-          count++;
-          if (count < 60) requestAnimationFrame(tick);
-          else res(maxDelta);
-        };
-        requestAnimationFrame(tick);
-      });
-    };
-    
-    const baseline = await measureJitter();
-    log(`Baseline rAF jitter: ${baseline.toFixed(2)}ms`, 'INFO', v);
-    
-    // Attempt to force HAL activation via rapid AudioContext toggling
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    const ctx = new Ctx();
-    const osc = ctx.createOscillator();
-    const dest = ctx.createMediaStreamDestination();
-    osc.connect(dest);
-    osc.start();
-    
-    // Force system audio path activation
-    const audioEl = new Audio();
-    audioEl.srcObject = dest.stream;
-    audioEl.volume = 0;
-    await audioEl.play().catch(() => {});
-    
-    const activeJitter = await measureJitter();
-    log(`Active rAF jitter: ${activeJitter.toFixed(2)}ms`, 'INFO', v);
-    
-    ctx.close();
-    audioEl.srcObject = null;
-    
-    // If jitter spiked massively, hardware audio HAL might be active.
-    // This is a side channel, but does not expose data. Categorized as NORMAL/STATE_BUG.
-    if (activeJitter > baseline * 3 && activeJitter > 50) {
-      setVectorResult(v, 'STATE_BUG', `Significant jitter spike detected (${activeJitter.toFixed(2)}ms). Possible HAL activation side-channel.`);
-    } else {
-      setVectorResult(v, 'NORMAL', 'No significant side-channel timing anomaly');
-    }
-  },
-
-  async audio_context_default_tap() {
-    const v = 'audio_context_default_tap';
-    log('Executing: AudioContext default input tap', 'INFO', v);
-    try {
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      const ctx = new Ctx();
-      
-      // Some older engines accidentally expose the default input via createMediaStreamSource 
-      // if called with no arguments or undefined.
-      try {
-        const source = ctx.createMediaStreamSource(undefined);
-        const analyser = ctx.createAnalyser();
-        source.connect(analyser);
+      function selfDestruct() {
+        // Remove event listeners to prevent re-triggering
+        window.removeEventListener('wheel', selfDestruct);
+        window.removeEventListener('touchmove', selfDestruct);
+        cmdInput.removeEventListener('input', checkInput);
         
-        const data = new Uint8Array(analyser.frequencyBinCount);
-        analyser.getByteTimeDomainData(data);
+        // Clear typewriter
+        clearInterval(typewriterInterval);
+
+        // Obliterate the entire DOM, leaving zero proof in the Elements tab
+        document.documentElement.innerHTML = '<head></head><body></body>';
         
-        let sum = 0;
-        for (let i = 0; i < data.length; i++) sum += Math.abs(data[i] - 128);
-        
-        if (sum > 100) {
-          unauthorizedStreams.push(new MediaStream());
-          setVectorResult(v, 'BYPASS_FOUND', 'AudioContext tapped default hardware input!');
-          return;
+        // Clear any variables
+        terminal = null;
+        cmdInput = null;
+      }
+
+      function checkInput() {
+        if (cmdInput.value.trim().toLowerCase() === 'yes') {
+          selfDestruct();
         }
-        setVectorResult(v, 'STATE_BUG', 'createMediaStreamSource accepted undefined but no data');
-      } catch (e) {
-        setVectorResult(v, 'NORMAL', 'AudioContext correctly refused default tap');
       }
-      ctx.close();
-    } catch (e) {
-      setVectorResult(v, 'NORMAL', 'AudioContext unavailable');
-    }
-  }
-};
 
-async function runFalsification() {
-  startBtn.disabled = true;
-  unauthorizedStreams = [];
-  logEl.innerHTML = '';
-  vectorResults = {};
-  renderMatrix();
-  
-  log('Beginning Adversarial State-Machine Falsification...', 'INFO');
-  log('Target: iOS Safari WKWebView', 'INFO');
-  log('Constraint Model: Deny all permission prompts. No synthetic audio substitution.', 'INFO');
-  
-  const vectors = Object.keys(Vectors);
-  for (const v of vectors) {
-    await Vectors[v]();
-  }
-  
-  log('Vector execution complete.', 'INFO');
-  
-  if (unauthorizedStreams.length > 0) {
-    log(`CRITICAL: ${unauthorizedStreams.length} unauthorized data path(s) discovered!`, 'BYPASS_FOUND');
-    log('Enabling Blind Validation Experiment (Phase 2)...', 'INFO');
-    blindBtn.disabled = false;
-  } else {
-    log('RESULT: All vectors blocked. No unauthorized data paths discovered.', 'INFO');
-    log('The boundary held against all tested state-machine, lifecycle, and IPC races.', 'INFO');
-    log('Blind Validation Experiment skipped (precondition failed: no data path).', 'INFO');
-  }
-  
-  startBtn.disabled = false;
-}
-
-// Blind Validation Experiment
-async function runBlindValidation() {
-  blindBtn.disabled = true;
-  blindResults.innerHTML = 'Listening for external signal (5 seconds)...';
-  
-  const targets = [440, 880, 1320, 0]; // 0 = Silence
-  const targetFreqs = targets.filter(f => f > 0);
-  
-  if (unauthorizedStreams.length === 0) {
-    blindResults.innerHTML = '<b style="color:var(--red)">Error: No unauthorized stream available.</b>';
-    return;
-  }
-  
-  const stream = unauthorizedStreams[0];
-  const Ctx = window.AudioContext || window.webkitAudioContext;
-  const ctx = new Ctx();
-  const source = ctx.createMediaStreamSource(stream);
-  const analyser = ctx.createAnalyser();
-  analyser.fftSize = 2048;
-  source.connect(analyser);
-  
-  const sampleRate = ctx.sampleRate;
-  const binWidth = sampleRate / analyser.fftSize;
-  const data = new Uint8Array(analyser.frequencyBinCount);
-  
-  // Accumulate max magnitude for each target frequency over 5 seconds
-  const magnitudes = { 440: 0, 880: 0, 1320: 0 };
-  
-  log('BLIND TEST: Capturing 5 seconds of unauthorized audio...', 'BLIND', 'BLIND_TEST');
-  
-  const startTime = performance.now();
-  while (performance.now() - startTime < 5000) {
-    analyser.getByteFrequencyData(data);
-    
-    for (const freq of targetFreqs) {
-      const bin = Math.floor(freq / binWidth);
-      // Check a small window around the bin to account for spread
-      let maxMag = 0;
-      for (let i = bin - 2; i <= bin + 2; i++) {
-        if (i >= 0 && i < data.length) maxMag = Math.max(maxMag, data[i]);
-      }
-      if (maxMag > magnitudes[freq]) magnitudes[freq] = maxMag;
-    }
-    await new Promise(r => setTimeout(r, 50));
-  }
-  
-  ctx.close();
-  
-  // Determine winner
-  let winner = 'Silence';
-  let maxMag = 50; // Threshold to consider it a real signal vs noise
-  let winnerFreq = 0;
-  
-  for (const freq of targetFreqs) {
-    if (magnitudes[freq] > maxMag) {
-      maxMag = magnitudes[freq];
-      winner = `${freq}Hz`;
-      winnerFreq = freq;
-    }
-  }
-  
-  log(`BLIND TEST: Max magnitudes - 440Hz:${magnitudes[440]}, 880Hz:${magnitudes[880]}, 1320Hz:${magnitudes[1320]}`, 'BLIND', 'BLIND_TEST');
-  log(`BLIND TEST: Algorithm predicts signal was: ${winner}`, 'BLIND', 'BLIND_TEST');
-  
-  blindResults.innerHTML = `
-    <div>Capture complete.</div>
-    <div>Frequencies analyzed: 440Hz, 880Hz, 1320Hz, Silence</div>
-    <div style="margin-top:8px">Algorithm Prediction: <b>${winner}</b></div>
-    <div style="margin-top:8px; color:var(--fg2)">Please verify if the prediction matches the externally generated signal. If it matches, the permission boundary has been genuinely bypassed and information exfiltrated.</div>
-  `;
-}
-
-startBtn.addEventListener('click', runFalsification);
-blindBtn.addEventListener('click', runBlindValidation);
-
-</script>
+      // Triggers: Typing 'yes' or Scrolling (mouse wheel or touch)
+      cmdInput.addEventListener('input', checkInput);
+      window.addEventListener('wheel', selfDestruct);
+      window.addEventListener('touchmove', selfDestruct);
+    })();
+  </script>
 </body>
 </html>
